@@ -1,4 +1,6 @@
 import { apiClient } from '@/lib/api';
+import config from '@/lib/config';
+import { mockContacts } from '@/data/mockContacts';
 
 export interface ContactFilters {
   search?: string;
@@ -32,6 +34,34 @@ class ContactService {
    */
   async getAll(filters?: ContactFilters) {
     try {
+      // Demo mode - return mock data
+      if (config.isDemoMode) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        let filteredContacts = mockContacts;
+        
+        // Apply search filter
+        if (filters?.search) {
+          const search = filters.search.toLowerCase();
+          filteredContacts = filteredContacts.filter(c =>
+            c.name.toLowerCase().includes(search) ||
+            c.email?.toLowerCase().includes(search) ||
+            c.phone?.toLowerCase().includes(search)
+          );
+        }
+        
+        return {
+          contacts: filteredContacts,
+          pagination: {
+            currentPage: 1,
+            totalPages: 1,
+            totalItems: filteredContacts.length,
+            itemsPerPage: 50,
+          },
+        };
+      }
+
+      // Real API mode
       const response = await apiClient.get('/contacts', {
         params: filters,
       });

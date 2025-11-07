@@ -1,4 +1,6 @@
 import { apiClient } from '@/lib/api';
+import config from '@/lib/config';
+import { mockConversations } from '@/data/mockConversations';
 
 export interface ConversationFilters {
   status?: string;
@@ -30,6 +32,36 @@ class ConversationService {
    */
   async getAll(filters?: ConversationFilters) {
     try {
+      // Demo mode - return mock data
+      if (config.isDemoMode) {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        let filteredConversations = mockConversations;
+        
+        // Apply filters if provided
+        if (filters?.status && filters.status !== 'all') {
+          filteredConversations = filteredConversations.filter(
+            c => c.status === filters.status
+          );
+        }
+        
+        if (filters?.channel) {
+          filteredConversations = filteredConversations.filter(
+            c => c.channel === filters.channel
+          );
+        }
+        
+        return {
+          conversations: filteredConversations,
+          total: filteredConversations.length,
+          page: filters?.page || 1,
+          limit: filters?.limit || 50,
+          hasMore: false,
+        };
+      }
+
+      // Real API mode
       const response = await apiClient.get('/conversations', {
         params: filters,
       });
@@ -44,6 +76,17 @@ class ConversationService {
    */
   async getById(id: string) {
     try {
+      // Demo mode - return mock data
+      if (config.isDemoMode) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const conversation = mockConversations.find(c => c.id === id);
+        if (!conversation) {
+          throw new Error('Conversation not found');
+        }
+        return conversation;
+      }
+
+      // Real API mode
       const response = await apiClient.get(`/conversations/${id}`);
       return response.data.conversation;
     } catch (error: any) {
