@@ -1,0 +1,52 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { MessageSquare, MessagesSquare, Users, UsersRound, BarChart3, Globe, Radio } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const menuItems = [
+  { href: "/settings/chatbot", label: "Chatbot", icon: MessageSquare },
+  { href: "/settings/conversations", label: "Conversations", icon: MessagesSquare },
+  { href: "/settings/contacts", label: "Contacts", icon: Users },
+  { href: "/settings/team", label: "Team", icon: UsersRound },
+  { href: "/settings/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/settings/language-privacy", label: "Language & Privacy", icon: Globe },
+  { href: "/settings/channels", label: "Channels", icon: Radio },
+];
+
+export function SettingsSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <div className="w-[260px] bg-card border-r border-border flex flex-col">
+      <div className="px-4 py-6">
+        <h2 className="text-xl font-bold text-foreground">Settings</h2>
+      </div>
+
+      <nav className="flex-1 px-3 space-y-1">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 h-10 px-3 rounded-md text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-primary text-foreground"
+                  : "text-secondary-foreground hover:bg-secondary"
+              )}
+            >
+              <Icon className="w-5 h-5 shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
