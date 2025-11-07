@@ -12,7 +12,7 @@ export const config = {
   wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5001',
   
   // App info
-  appName: 'KepleroAI',
+  appName: 'AiStein.it',
   appVersion: '1.0.0',
 } as const;
 

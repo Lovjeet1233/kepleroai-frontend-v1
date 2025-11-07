@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { toast } from "sonner";
-import { Bot } from "lucide-react";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -65,12 +65,17 @@ export default function SignInPage() {
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-primary/10 p-3">
-              <Bot className="h-8 w-8 text-primary" />
-            </div>
+            <Image
+              src="/image.png"
+              alt="AiStein.it Logo"
+              width={80}
+              height={80}
+              className="object-contain"
+              priority
+            />
           </div>
           <CardTitle className="text-2xl font-bold text-foreground">
-            Welcome to IslandAIAI
+            AiStein.it
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Sign in to your account to continue
