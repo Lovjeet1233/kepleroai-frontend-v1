@@ -1,6 +1,4 @@
 import { apiClient } from '@/lib/api';
-import config from '@/lib/config';
-import { mockContacts } from '@/data/mockContacts';
 
 export interface ContactFilters {
   search?: string;
@@ -34,36 +32,15 @@ class ContactService {
    */
   async getAll(filters?: ContactFilters) {
     try {
-      // Demo mode - return mock data
-      if (config.isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 400));
-        
-        let filteredContacts = mockContacts;
-        
-        // Apply search filter
-        if (filters?.search) {
-          const search = filters.search.toLowerCase();
-          filteredContacts = filteredContacts.filter(c =>
-            c.name.toLowerCase().includes(search) ||
-            c.email?.toLowerCase().includes(search) ||
-            c.phone?.toLowerCase().includes(search)
-          );
-        }
-        
-        return {
-          contacts: filteredContacts,
-          pagination: {
-            currentPage: 1,
-            totalPages: 1,
-            totalItems: filteredContacts.length,
-            itemsPerPage: 50,
-          },
-        };
+      // Map listIds to listId for backend compatibility
+      const params: any = { ...filters };
+      if (params.listIds && params.listIds.length > 0) {
+        params.listId = params.listIds[0]; // Backend expects singular listId
+        delete params.listIds;
       }
-
-      // Real API mode
+      
       const response = await apiClient.get('/contacts', {
-        params: filters,
+        params,
       });
       // Backend uses paginatedResponse which returns { data: { items: [...], pagination: {...} } }
       // Transform _id to id for frontend compatibility and add UI defaults
@@ -106,7 +83,14 @@ class ContactService {
    */
   async create(data: CreateContactData) {
     try {
-      const response = await apiClient.post('/contacts', data);
+      // Map listIds to lists for backend compatibility
+      const payload = {
+        ...data,
+        lists: data.listIds, // Backend expects 'lists' field
+      };
+      delete payload.listIds; // Remove listIds to avoid confusion
+      
+      const response = await apiClient.post('/contacts', payload);
       // Backend uses successResponse which returns { data: <contact> }
       // Transform _id to id for frontend compatibility and add UI defaults
       const contact = response.data;
@@ -131,7 +115,14 @@ class ContactService {
    */
   async update(id: string, data: UpdateContactData) {
     try {
-      const response = await apiClient.patch(`/contacts/${id}`, data);
+      // Map listIds to lists for backend compatibility
+      const payload: any = { ...data };
+      if (payload.listIds) {
+        payload.lists = payload.listIds;
+        delete payload.listIds;
+      }
+      
+      const response = await apiClient.patch(`/contacts/${id}`, payload);
       // Backend uses successResponse which returns { data: <contact> }
       // Transform _id to id for frontend compatibility
       return {
@@ -282,7 +273,13 @@ class ContactService {
   async getLists() {
     try {
       const response = await apiClient.get('/contacts/lists/all');
-      return response.data?.lists || [];
+      // Backend returns { data: <array> } using successResponse
+      const lists = response.data || [];
+      // Transform _id to id for frontend compatibility
+      return lists.map((list: any) => ({
+        ...list,
+        id: list._id,
+      }));
     } catch (error: any) {
       // If endpoint doesn't exist, return empty array instead of failing
       console.warn('Contact lists endpoint not available:', error.message);
@@ -299,9 +296,32 @@ class ContactService {
         name,
         description,
       });
-      return response.data.list;
+      // Backend returns { data: <list> } using successResponse
+      const list = response.data;
+      return {
+        ...list,
+        id: list._id,
+      };
     } catch (error: any) {
+      if (error.status === 409) {
+        throw new Error('A list with this name already exists');
+      }
       throw new Error(error.message || 'Failed to create list');
+    }
+  }
+
+  /**
+   * Bulk add contacts to list
+   */
+  async bulkAddToList(contactIds: string[], listId: string) {
+    try {
+      const response = await apiClient.post('/contacts/bulk-add-to-list', {
+        contactIds,
+        listId,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to add contacts to list');
     }
   }
 

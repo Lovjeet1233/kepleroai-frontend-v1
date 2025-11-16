@@ -52,14 +52,16 @@ if (campaignQueue) {
       try {
         // Replace template variables
         const variables: Record<string, string> = {};
-        for (const [key, value] of Object.entries(campaign.templateVariables)) {
-          variables[key] = value.replace('{{name}}', contact.name);
+        if (campaign.templateVariables) {
+          for (const [key, value] of Object.entries(campaign.templateVariables)) {
+            variables[key] = value.replace('{{name}}', contact.name);
+          }
         }
 
         // Send via WhatsApp
         const { messageId } = await whatsappService.sendTemplate(
           contact.phone,
-          campaign.templateId,
+          campaign.templateId!,
           'en',
           variables
         );
@@ -158,8 +160,10 @@ campaignQueue.process('send-follow-up', async (job) => {
       try {
         // Replace template variables
         const variables: Record<string, string> = {};
-        for (const [key, value] of Object.entries(campaign.templateVariables)) {
-          variables[key] = value.replace('{{name}}', contact.name);
+        if (campaign.templateVariables) {
+          for (const [key, value] of Object.entries(campaign.templateVariables)) {
+            variables[key] = value.replace('{{name}}', contact.name);
+          }
         }
 
         // Send via WhatsApp

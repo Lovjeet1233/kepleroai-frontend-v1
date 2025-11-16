@@ -79,6 +79,8 @@ export class ConversationService {
 
   // Get conversation by ID with all messages
   async findById(conversationId: string) {
+    console.log(`[Conversation Service] Fetching conversation: ${conversationId}`);
+    
     const conversation = await Conversation.findById(conversationId)
       .populate('customerId', 'name email phone avatar color customProperties')
       .populate('assignedOperatorId', 'firstName lastName avatar')
@@ -88,10 +90,34 @@ export class ConversationService {
       throw new AppError(404, 'NOT_FOUND', 'Conversation not found');
     }
 
-    const messages = await Message.find({ conversationId })
+    console.log(`[Conversation Service] Found conversation for customer: ${(conversation as any).customerId?.name}`);
+    console.log(`[Conversation Service] Has transcript: ${!!(conversation as any).transcript}`);
+
+    // Query messages using both _id and string id to handle any format
+    const messages = await Message.find({ 
+      conversationId: (conversation as any)._id 
+    })
       .populate('operatorId', 'firstName lastName avatar')
       .sort({ timestamp: 1 })
       .lean();
+
+    console.log(`[Conversation Service] Found ${messages.length} messages for conversation ${(conversation as any)._id}`);
+    if (messages.length > 0) {
+      console.log(`[Conversation Service] First message:`, {
+        sender: messages[0].sender,
+        textPreview: messages[0].text?.substring(0, 50),
+      });
+    } else {
+      // Debug: Check if any messages exist in the collection
+      const totalMessages = await Message.countDocuments({});
+      console.log(`[Conversation Service] ⚠️ No messages found. Total messages in DB: ${totalMessages}`);
+      
+      // Check with string comparison
+      const messagesWithString = await Message.find({ 
+        conversationId: conversationId 
+      }).lean();
+      console.log(`[Conversation Service] Messages found with string query: ${messagesWithString.length}`);
+    }
 
     return {
       ...conversation,
@@ -235,6 +261,31 @@ export class ConversationService {
     return { message: 'Conversation deleted successfully' };
   }
 
+  // Bulk create conversations (for campaign transcripts)
+  async bulkCreate(conversationsData: any[]) {
+    const created = [];
+    const failed = [];
+
+    for (const data of conversationsData) {
+      try {
+        const conversation = await Conversation.create(data);
+        created.push(conversation);
+      } catch (error: any) {
+        failed.push({
+          data,
+          error: error.message
+        });
+      }
+    }
+
+    return {
+      created: created.length,
+      failed: failed.length,
+      conversations: created,
+      errors: failed
+    };
+  }
+
   // Bulk delete
   async bulkDelete(conversationIds: string[]) {
     const result = await Conversation.deleteMany({
@@ -277,6 +328,75 @@ export class ConversationService {
       .lean();
 
     return messages;
+  }
+
+  // Save widget conversation (from public widget, no user account required)
+  async saveWidgetConversation(data: {
+    name: string;
+    threadId: string;
+    collection?: string;
+    messages: Array<{ role: string; content: string; timestamp: Date }>;
+  }) {
+    try {
+      console.log('[Widget Conversation] Saving conversation for:', data.name);
+      
+      // Find or create customer by name
+      let customer = await Customer.findOne({ name: data.name });
+      
+      if (!customer) {
+        console.log('[Widget Conversation] Creating new customer:', data.name);
+        customer = await Customer.create({
+          name: data.name,
+          source: 'widget'
+          // status will use default from schema
+        });
+      }
+
+      // Find existing conversation by threadId using dot notation
+      let conversation = await Conversation.findOne({ 
+        'metadata.threadId': data.threadId 
+      });
+
+      if (!conversation) {
+        console.log('[Widget Conversation] Creating new conversation for thread:', data.threadId);
+        conversation = await Conversation.create({
+          customerId: customer._id,
+          channel: 'website',
+          status: 'unread', // Valid status: 'open', 'unread', 'support_request', 'closed'
+          isAiManaging: true, // Widget conversations are AI managed
+          metadata: {
+            threadId: data.threadId,
+            collection: data.collection
+          }
+        });
+      }
+
+      // Add messages
+      console.log('[Widget Conversation] Adding', data.messages.length, 'messages');
+      for (const msg of data.messages) {
+        await Message.create({
+          conversationId: conversation._id,
+          sender: msg.role === 'user' ? 'customer' : 'ai', // Valid values: 'customer', 'ai', 'operator'
+          text: msg.content, // Message model uses 'text' not 'content'
+          type: 'message', // Default message type
+          timestamp: msg.timestamp
+        });
+      }
+
+      // Update conversation updatedAt
+      conversation.updatedAt = new Date();
+      await conversation.save();
+
+      console.log('[Widget Conversation] ✅ Conversation saved successfully');
+      return conversation;
+    } catch (error: any) {
+      console.error('[Widget Conversation] ❌ Error saving conversation:', error);
+      throw new AppError(
+        500, 
+        'SAVE_ERROR', 
+        `Failed to save widget conversation: ${error.message}`
+      );
+    }
   }
 }
 

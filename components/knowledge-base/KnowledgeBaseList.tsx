@@ -1,0 +1,109 @@
+"use client";
+
+import { useState } from 'react';
+import { Plus, Database, Upload } from 'lucide-react';
+import { useKnowledgeBase } from '@/contexts/KnowledgeBaseContext';
+import { CreateCollectionModal } from './CreateCollectionModal';
+import { IngestDataModal } from './IngestDataModal';
+
+export function KnowledgeBaseList() {
+  const { collections } = useKnowledgeBase();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [selectedCollectionForIngest, setSelectedCollectionForIngest] = useState<string | null>(null);
+
+  const handleIngestClick = (collectionName: string) => {
+    setSelectedCollectionForIngest(collectionName);
+    setIsIngestModalOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Create Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Knowledge Bases</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your knowledge base collections
+          </p>
+        </div>
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          Create Knowledge Base
+        </button>
+      </div>
+
+      {/* Collections List */}
+      {collections.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-border rounded-xl">
+          <Database className="w-16 h-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            No Knowledge Bases Yet
+          </h3>
+          <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
+            Create your first knowledge base collection to start ingesting data and chatting with your AI
+          </p>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Create First Knowledge Base
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {collections.map((collection) => (
+            <div
+              key={collection.collection_name}
+              className="bg-card border border-border rounded-xl p-6 hover:border-primary transition-colors"
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Database className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-semibold text-foreground truncate">
+                    {collection.collection_name}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Created {new Date(collection.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleIngestClick(collection.collection_name)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-secondary hover:bg-accent text-foreground rounded-lg text-sm font-medium transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Ingest Data
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modals */}
+      <CreateCollectionModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      {selectedCollectionForIngest && (
+        <IngestDataModal
+          isOpen={isIngestModalOpen}
+          onClose={() => {
+            setIsIngestModalOpen(false);
+            setSelectedCollectionForIngest(null);
+          }}
+          collectionName={selectedCollectionForIngest}
+        />
+      )}
+    </div>
+  );
+}
+

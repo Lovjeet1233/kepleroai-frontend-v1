@@ -18,6 +18,15 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
+  // Log error for debugging
+  console.error('Error occurred:', {
+    name: err.name,
+    message: err.message,
+    statusCode: err.statusCode,
+    code: err.code,
+    stack: err.stack
+  });
+
   let statusCode = err.statusCode || 500;
   let code = err.code || 'INTERNAL_ERROR';
   let message = err.message || 'Internal server error';
@@ -56,5 +65,12 @@ export const errorHandler = (
   }
 
   res.status(statusCode).json(errorResponse(code, message, details));
+};
+
+// Async handler wrapper to catch errors and pass to error handler
+export const asyncHandler = (fn: Function) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
 };
 

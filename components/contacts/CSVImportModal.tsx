@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 interface CSVImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (file: File, listName: string) => Promise<void>;
+  onImport: (file: File) => Promise<void>;
+  listName?: string;
 }
 
-export function CSVImportModal({ isOpen, onClose, onImport }: CSVImportModalProps) {
-  const [listName, setListName] = useState("");
+export function CSVImportModal({ isOpen, onClose, onImport, listName }: CSVImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,15 +45,15 @@ export function CSVImportModal({ isOpen, onClose, onImport }: CSVImportModalProp
   };
 
   const handleImport = async () => {
-    if (!file || !listName.trim()) {
-      setError("Please provide both a list name and CSV file");
+    if (!file) {
+      setError("Please provide a CSV file");
       return;
     }
 
     try {
       setImporting(true);
       setError(null);
-      await onImport(file, listName);
+      await onImport(file);
       handleClose();
     } catch (err: any) {
       setError(err.message || "Failed to import contacts");
@@ -63,7 +63,6 @@ export function CSVImportModal({ isOpen, onClose, onImport }: CSVImportModalProp
   };
 
   const handleClose = () => {
-    setListName("");
     setFile(null);
     setError(null);
     setImporting(false);
@@ -75,7 +74,12 @@ export function CSVImportModal({ isOpen, onClose, onImport }: CSVImportModalProp
       <div className="bg-card rounded-xl w-full max-w-lg mx-4 shadow-2xl border border-border">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">Import Contacts from CSV</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Import Contacts from CSV</h2>
+            {listName && (
+              <p className="text-sm text-muted-foreground mt-1">Importing to: {listName}</p>
+            )}
+          </div>
           <button
             onClick={handleClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -87,20 +91,6 @@ export function CSVImportModal({ isOpen, onClose, onImport }: CSVImportModalProp
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* List Name Input */}
-          <div>
-            <label className="block text-sm font-medium text-secondary-foreground mb-2">
-              List Name *
-            </label>
-            <input
-              type="text"
-              value={listName}
-              onChange={(e) => setListName(e.target.value)}
-              placeholder="Enter list name"
-              className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
-              disabled={importing}
-            />
-          </div>
 
           {/* File Upload */}
           <div>
@@ -196,10 +186,10 @@ export function CSVImportModal({ isOpen, onClose, onImport }: CSVImportModalProp
           </button>
           <button
             onClick={handleImport}
-            disabled={!file || !listName.trim() || importing}
+            disabled={!file || importing}
             className={cn(
               "px-6 py-2 rounded-lg font-medium transition-all",
-              !file || !listName.trim() || importing
+              !file || importing
                 ? "bg-gray-700 text-muted-foreground cursor-not-allowed"
                 : "bg-primary text-foreground hover:brightness-110"
             )}

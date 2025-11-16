@@ -34,7 +34,8 @@ export class KnowledgeBaseController {
   createKnowledgeBase = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { name } = req.body;
-      const kb = await this.kbService.create(name);
+      const userId = req.user!.id;
+      const kb = await this.kbService.create(name, userId);
       res.status(201).json(successResponse(kb, 'Knowledge base created'));
     } catch (error) {
       next(error);
@@ -238,6 +239,10 @@ export class KnowledgeBaseController {
         throw new AppError(400, 'VALIDATION_ERROR', 'No file uploaded');
       }
 
+      const { kbId } = req.params;
+      const isPdf = req.file.mimetype === 'application/pdf';
+      const isExcel = req.file.mimetype.includes('spreadsheet') || req.file.mimetype.includes('excel');
+
       // Upload to S3
       const url = await this.s3Service.uploadFile(
         req.file.buffer,
@@ -247,7 +252,7 @@ export class KnowledgeBaseController {
 
       // Create file record
       const file = await this.kbService.createFileRecord(
-        req.params.kbId,
+        kbId,
         req.file.filename,
         req.file.originalname,
         req.file.mimetype,
@@ -255,15 +260,35 @@ export class KnowledgeBaseController {
         url
       );
 
-      // Process file in background
-      this.processFile((file._id as any).toString(), req.file.buffer, req.file.mimetype);
+      // Ingest into Python RAG system directly
+      try {
+        console.log(`[KB Controller] Ingesting file ${req.file.originalname} into Python RAG`);
+        
+        if (isPdf) {
+          await this.kbService.ingestIntoRAG(kbId, {
+            pdfFiles: [req.file.buffer]
+          });
+        } else if (isExcel) {
+          await this.kbService.ingestIntoRAG(kbId, {
+            excelFiles: [req.file.buffer]
+          });
+        }
+        
+        // Update file status to processed
+        await this.kbService.updateFileContent((file._id as any).toString(), '', 'processed');
+        
+        console.log('[KB Controller] ✅ File ingested successfully into Python RAG');
+      } catch (error: any) {
+        console.error('[KB Controller] Failed to ingest file into Python RAG:', error);
+        await this.kbService.updateFileContent((file._id as any).toString(), '', 'failed');
+      }
 
       res.json(successResponse({
         id: file._id,
         filename: file.originalFilename,
         size: file.size,
-        status: 'processing',
-        message: 'File is being processed...'
+        status: 'processed',
+        message: 'File uploaded and ingested successfully'
       }));
     } catch (error) {
       next(error);

@@ -1,6 +1,12 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+// API URL Configuration
+// IMPORTANT: Make sure your .env.local file has NEXT_PUBLIC_API_URL=http://localhost:5001/api/v1
+const API_URL = typeof window !== 'undefined' && process.env.NODE_ENV === 'development'
+  ? 'http://localhost:5001/api/v1'  // Force localhost:5001 in development
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1');
+
+console.log('🔧 API Client initialized with URL:', API_URL);
 
 /**
  * Centralized API client with automatic token management and error handling

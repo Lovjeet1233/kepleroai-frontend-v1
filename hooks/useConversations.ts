@@ -21,7 +21,7 @@ export function useInfiniteConversations(filters?: ConversationFilters) {
     queryFn: ({ pageParam = 1 }) =>
       conversationService.getAll({ ...filters, page: pageParam }),
     getNextPageParam: (lastPage, pages) => {
-      if (lastPage.hasMore) {
+      if (lastPage.pagination?.hasNext) {
         return pages.length + 1;
       }
       return undefined;

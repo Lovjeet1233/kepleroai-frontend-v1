@@ -1,11 +1,49 @@
 import { apiClient } from '@/lib/api';
 
 export interface AnalyticsFilters {
-  startDate?: string;
-  endDate?: string;
+  dateFrom?: string;
+  dateTo?: string;
   channel?: string;
   operatorId?: string;
-  granularity?: 'hour' | 'day' | 'week' | 'month';
+  groupBy?: 'hour' | 'day' | 'week' | 'month';
+}
+
+export interface DashboardMetrics {
+  totalConversations: number;
+  activeConversations: number;
+  closedConversations: number;
+  aiManaged: number;
+  humanManaged: number;
+  avgResponseTime: number;
+  customerSatisfactionScore: number | null;
+  messagesToday: number;
+  conversationsByChannel: Record<string, number>;
+  conversationsByStatus: Record<string, number>;
+}
+
+export interface TrendsData {
+  newConversations: Array<{ period: string; count: number }>;
+  messagesSent: Array<{ period: string; count: number }>;
+  responseTimes: Array<{ period: string; avgResponseTime: number }>;
+  resolutionRates: Array<{ period: string; resolutionRate: number }>;
+}
+
+export interface PerformanceMetrics {
+  avgFirstResponseTime: number;
+  avgResolutionTime: number;
+  conversationsPerOperator: Array<{
+    operatorId: string;
+    operatorName: string;
+    totalHandled: number;
+    resolved: number;
+    resolutionRate: number;
+  }>;
+  aiVsHuman: {
+    ai: { total: number; resolved: number; resolutionRate: number };
+    human: { total: number; resolved: number; resolutionRate: number };
+  };
+  busiestHours: Array<{ hour: string; count: number }>;
+  busiestDays: Array<{ day: string; count: number }>;
 }
 
 /**
@@ -16,13 +54,14 @@ class AnalyticsService {
   /**
    * Get dashboard overview metrics
    */
-  async getDashboardMetrics(filters?: AnalyticsFilters) {
+  async getDashboardMetrics(filters?: AnalyticsFilters): Promise<DashboardMetrics> {
     try {
-      const response = await apiClient.get('/analytics/dashboard', {
+      const response: any = await apiClient.get('/analytics/dashboard', {
         params: filters,
       });
       return response.data;
     } catch (error: any) {
+      console.error('Error fetching dashboard metrics:', error);
       throw new Error(error.message || 'Failed to fetch dashboard metrics');
     }
   }
@@ -30,98 +69,30 @@ class AnalyticsService {
   /**
    * Get conversation trends over time
    */
-  async getConversationTrends(filters?: AnalyticsFilters) {
+  async getConversationTrends(filters?: AnalyticsFilters): Promise<TrendsData> {
     try {
-      const response = await apiClient.get('/analytics/conversations/trends', {
+      const response: any = await apiClient.get('/analytics/trends', {
         params: filters,
       });
       return response.data;
     } catch (error: any) {
+      console.error('Error fetching conversation trends:', error);
       throw new Error(error.message || 'Failed to fetch conversation trends');
     }
   }
 
   /**
-   * Get message statistics
+   * Get performance metrics (response times, operator stats, AI vs Human)
    */
-  async getMessageStats(filters?: AnalyticsFilters) {
+  async getPerformanceMetrics(filters?: AnalyticsFilters): Promise<PerformanceMetrics> {
     try {
-      const response = await apiClient.get('/analytics/messages/stats', {
+      const response: any = await apiClient.get('/analytics/performance', {
         params: filters,
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch message stats');
-    }
-  }
-
-  /**
-   * Get response time metrics
-   */
-  async getResponseTimeMetrics(filters?: AnalyticsFilters) {
-    try {
-      const response = await apiClient.get('/analytics/response-time', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch response time metrics');
-    }
-  }
-
-  /**
-   * Get operator performance metrics
-   */
-  async getOperatorPerformance(filters?: AnalyticsFilters) {
-    try {
-      const response = await apiClient.get('/analytics/operators/performance', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch operator performance');
-    }
-  }
-
-  /**
-   * Get channel distribution
-   */
-  async getChannelDistribution(filters?: AnalyticsFilters) {
-    try {
-      const response = await apiClient.get('/analytics/channels/distribution', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch channel distribution');
-    }
-  }
-
-  /**
-   * Get customer satisfaction metrics
-   */
-  async getSatisfactionMetrics(filters?: AnalyticsFilters) {
-    try {
-      const response = await apiClient.get('/analytics/satisfaction', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch satisfaction metrics');
-    }
-  }
-
-  /**
-   * Get AI performance metrics
-   */
-  async getAIPerformance(filters?: AnalyticsFilters) {
-    try {
-      const response = await apiClient.get('/analytics/ai/performance', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch AI performance');
+      console.error('Error fetching performance metrics:', error);
+      throw new Error(error.message || 'Failed to fetch performance metrics');
     }
   }
 
@@ -130,53 +101,28 @@ class AnalyticsService {
    */
   async getTopics(filters?: AnalyticsFilters) {
     try {
-      const response = await apiClient.get('/analytics/topics', {
+      const response: any = await apiClient.get('/analytics/topics', {
         params: filters,
       });
       return response.data;
     } catch (error: any) {
+      console.error('Error fetching topics:', error);
       throw new Error(error.message || 'Failed to fetch topics');
-    }
-  }
-
-  /**
-   * Get peak hours analysis
-   */
-  async getPeakHours(filters?: AnalyticsFilters) {
-    try {
-      const response = await apiClient.get('/analytics/peak-hours', {
-        params: filters,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch peak hours');
     }
   }
 
   /**
    * Export analytics data
    */
-  async exportData(filters?: AnalyticsFilters, format: 'csv' | 'xlsx' | 'pdf' = 'csv') {
+  async exportData(filters?: AnalyticsFilters, format: 'csv' | 'json' = 'csv') {
     try {
       const response = await apiClient.get('/analytics/export', {
         params: { ...filters, format },
-        responseType: 'blob',
       });
       return response;
     } catch (error: any) {
+      console.error('Error exporting data:', error);
       throw new Error(error.message || 'Failed to export data');
-    }
-  }
-
-  /**
-   * Get real-time statistics
-   */
-  async getRealTimeStats() {
-    try {
-      const response = await apiClient.get('/analytics/realtime');
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch real-time stats');
     }
   }
 }

@@ -2,48 +2,76 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { mockCampaigns, Campaign } from "@/data/mockCampaigns";
 import { CampaignList } from "@/components/campaigns/CampaignList";
 import { CampaignBuilder } from "@/components/campaigns/CampaignBuilder";
+import { useCampaigns, useCreateCampaign } from "@/hooks/useCampaigns";
+import { campaignService } from "@/services/campaign.service";
+import { toast } from "sonner";
 
 export default function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(mockCampaigns);
   const [showBuilder, setShowBuilder] = useState(false);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<any | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleCreateCampaign = (data: any) => {
-    const newCampaign: Campaign = {
-      id: Date.now().toString(),
-      name: data.name,
-      contactList: data.contactList,
-      status: "draft",
-      sentCount: 0,
-      openedCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    setCampaigns([newCampaign, ...campaigns]);
-    setShowBuilder(false);
+  // Fetch campaigns from API
+  const { data: campaigns = [], isLoading } = useCampaigns();
+  const createCampaign = useCreateCampaign();
+
+  const handleCreateCampaign = async (data: any) => {
+    try {
+      setIsSending(true);
+
+      // Save campaign first to get ID
+      const campaign = await createCampaign.mutateAsync({
+        ...data,
+        status: 'draft',
+      });
+
+      // Start campaign immediately via backend (which calls bulk communication API)
+      const campaignId = campaign._id || campaign.id;
+      const startResult = await campaignService.start(campaignId);
+
+      toast.success(`Campaign sent successfully!`);
+      setShowBuilder(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send campaign");
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  const handleEditCampaign = (campaign: Campaign) => {
+  const handleEditCampaign = (campaign: any) => {
     setEditingCampaign(campaign);
     setShowBuilder(true);
   };
 
-  const handleDeleteCampaign = (id: string) => {
-    setCampaigns(campaigns.filter((c) => c.id !== id));
+  const handleDeleteCampaign = async (id: string) => {
+    // TODO: Implement delete campaign API call
+    console.log("Deleting campaign:", id);
   };
 
   if (showBuilder) {
     return (
       <div className="fixed inset-0" style={{ left: "240px" }}>
-        <CampaignBuilder
-          onClose={() => {
-            setShowBuilder(false);
-            setEditingCampaign(null);
-          }}
-          onSave={handleCreateCampaign}
-        />
+        {isSending ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-lg text-foreground font-medium">Sending campaign...</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                This may take a few minutes depending on the number of contacts
+              </p>
+            </div>
+          </div>
+        ) : (
+          <CampaignBuilder
+            onClose={() => {
+              setShowBuilder(false);
+              setEditingCampaign(null);
+            }}
+            onSave={handleCreateCampaign}
+          />
+        )}
       </div>
     );
   }
@@ -64,7 +92,14 @@ export default function CampaignsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {campaigns.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading campaigns...</p>
+            </div>
+          </div>
+        ) : campaigns.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="rounded-full bg-secondary p-6 mb-4">
               <svg

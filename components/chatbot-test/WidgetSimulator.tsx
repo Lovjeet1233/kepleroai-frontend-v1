@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw, Send, Minimize2 } from "lucide-react";
+import { RotateCcw, Send, Minimize2, Database } from "lucide-react";
 import { mockChatbotSettings } from "@/data/mockSettings";
+import { pythonRagService } from "@/services/pythonRag.service";
+import { useKnowledgeBase } from "@/contexts/KnowledgeBaseContext";
+import { v4 as uuidv4 } from "uuid";
 
 interface ChatMessage {
   id: string;
   sender: "bot" | "user";
   content: string;
   timestamp: string;
+  retrieved_docs?: string[];
 }
 
 export function WidgetSimulator() {
+  const { collections, selectedCollection, setSelectedCollection, chatAgentPrompt } = useKnowledgeBase();
+  const [threadId] = useState(uuidv4());
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
@@ -22,9 +28,10 @@ export function WidgetSimulator() {
   ]);
   const [input, setInput] = useState("");
   const [isReady] = useState(true);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isSending) return;
 
     // Add user message
     const userMessage = {
@@ -35,19 +42,56 @@ export function WidgetSimulator() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userQuery = input;
     setInput("");
+    setIsSending(true);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botMessage = {
+    try {
+      if (selectedCollection) {
+        // Use Python RAG for response
+        const systemPrompt = `Knowledge base: ${selectedCollection}. Use documents from this collection to answer questions accurately.\n\n${chatAgentPrompt}`;
+        
+        const response = await pythonRagService.chat({
+          query: userQuery,
+          collection_name: selectedCollection,
+          thread_id: threadId,
+          system_prompt: systemPrompt,
+          top_k: 5
+        });
+
+        const botMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot" as const,
+          content: response.answer,
+          timestamp: new Date().toISOString(),
+          retrieved_docs: response.retrieved_docs
+        };
+        setMessages((prev) => [...prev, botMessage]);
+      } else {
+        // Fallback to simulated response if no collection selected
+        setTimeout(() => {
+          const botMessage = {
+            id: (Date.now() + 1).toString(),
+            sender: "bot" as const,
+            content:
+              "Please select a knowledge base collection to enable AI responses. Go to AI Behavior → Knowledge Base to create one.",
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, botMessage]);
+        }, 500);
+      }
+    } catch (error: any) {
+      console.error('Chat error:', error);
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
         sender: "bot" as const,
-        content:
-          "Thank you for your message! This is a simulated response. In production, your AI will handle this conversation automatically.",
+        content: `Error: ${error.message}. Please ensure Python RAG service is running on http://localhost:8000`,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, botMessage]);
-    }, 1000);
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleNewChat = () => {
@@ -63,15 +107,42 @@ export function WidgetSimulator() {
 
   return (
     <div className="w-1/2 bg-background p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-foreground">Preview</h2>
-        <button
-          onClick={handleNewChat}
-          className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground rounded-lg text-sm transition-colors"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Open new chat</span>
-        </button>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">Live Preview</h2>
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground rounded-lg text-sm transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>New Chat</span>
+          </button>
+        </div>
+
+        {/* Collection Selector */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+            <Database className="w-4 h-4" />
+            Knowledge Base
+          </label>
+          <select
+            value={selectedCollection || ''}
+            onChange={(e) => setSelectedCollection(e.target.value || null)}
+            className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
+          >
+            <option value="">-- Select Collection (Optional) --</option>
+            {collections.map((collection) => (
+              <option key={collection.collection_name} value={collection.collection_name}>
+                {collection.collection_name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-2">
+            {selectedCollection 
+              ? `Using RAG with ${selectedCollection}` 
+              : 'Select a collection to enable AI-powered responses'}
+          </p>
+        </div>
       </div>
 
       {/* Status indicator */}
@@ -148,9 +219,14 @@ export function WidgetSimulator() {
               />
               <button
                 onClick={handleSend}
-                className="w-10 h-10 bg-primary hover:brightness-110 text-white rounded-lg flex items-center justify-center transition-all"
+                disabled={!input.trim() || isSending}
+                className="w-10 h-10 bg-primary hover:brightness-110 text-white rounded-lg flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send className="w-4 h-4" />
+                {isSending ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Link2, Copy, Check } from "lucide-react";
 import { CodeBlock } from "./CodeBlock";
+import { WidgetLinkGenerator } from "./WidgetLinkGenerator";
 
-const tabs = ["HTML", "Shopify", "WordPress", "PrestaShop"];
+const tabs = ["Widget Link", "HTML", "Shopify", "WordPress", "PrestaShop"];
 
 const installationCode = {
   HTML: `<!-- Add this code before the closing </body> tag -->
@@ -84,7 +85,7 @@ const advancedAttributes = [
 ];
 
 export function InstallationGuide() {
-  const [activeTab, setActiveTab] = useState("HTML");
+  const [activeTab, setActiveTab] = useState("Widget Link");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -124,48 +125,54 @@ export function InstallationGuide() {
 
       {/* Tab content */}
       <div className="space-y-6">
-        <div className="text-sm text-muted-foreground leading-relaxed space-y-2">
-          {activeTab === "HTML" && (
-            <>
-              <p>
-                1. Copy the code below and paste it just before the closing{" "}
-                <code className="bg-background px-2 py-0.5 rounded text-indigo-400">
-                  &lt;/body&gt;
-                </code>{" "}
-                tag in your HTML
-              </p>
-              <p>
-                2. Replace{" "}
-                <code className="bg-background px-2 py-0.5 rounded text-indigo-400">
-                  your-widget-id
-                </code>{" "}
-                with your actual widget ID
-              </p>
-              <p>3. Save and publish your changes</p>
-            </>
-          )}
-          {activeTab !== "HTML" && (
-            <p className="whitespace-pre-line">
-              {installationCode[activeTab as keyof typeof installationCode]
-                .split("\n\n")[0]
-                .split("\n")
-                .map((line, i) => (
-                  <span key={i} className="block mb-1">
-                    {line}
-                  </span>
-                ))}
-            </p>
-          )}
-        </div>
+        {activeTab === "Widget Link" ? (
+          <WidgetLinkGenerator />
+        ) : (
+          <>
+            <div className="text-sm text-muted-foreground leading-relaxed space-y-2">
+              {activeTab === "HTML" && (
+                <>
+                  <p>
+                    1. Copy the code below and paste it just before the closing{" "}
+                    <code className="bg-background px-2 py-0.5 rounded text-indigo-400">
+                      &lt;/body&gt;
+                    </code>{" "}
+                    tag in your HTML
+                  </p>
+                  <p>
+                    2. Replace{" "}
+                    <code className="bg-background px-2 py-0.5 rounded text-indigo-400">
+                      your-widget-id
+                    </code>{" "}
+                    with your actual widget ID
+                  </p>
+                  <p>3. Save and publish your changes</p>
+                </>
+              )}
+              {activeTab !== "HTML" && (
+                <p className="whitespace-pre-line">
+                  {installationCode[activeTab as keyof typeof installationCode]
+                    .split("\n\n")[0]
+                    .split("\n")
+                    .map((line, i) => (
+                      <span key={i} className="block mb-1">
+                        {line}
+                      </span>
+                    ))}
+                </p>
+              )}
+            </div>
 
-        <CodeBlock
-          code={
-            activeTab === "HTML"
-              ? installationCode.HTML
-              : installationCode[activeTab as keyof typeof installationCode]
-                  .split("\n\n")[1]
-          }
-        />
+            <CodeBlock
+              code={
+                activeTab === "HTML"
+                  ? installationCode.HTML
+                  : installationCode[activeTab as keyof typeof installationCode]
+                      .split("\n\n")[1]
+              }
+            />
+          </>
+        )}
 
         {/* Advanced attributes */}
         <div className="border-t border-border pt-6">

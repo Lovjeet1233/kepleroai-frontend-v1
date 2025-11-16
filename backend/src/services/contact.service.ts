@@ -4,6 +4,7 @@ import ContactListMember from '../models/ContactListMember';
 import CustomProperty from '../models/CustomProperty';
 import Conversation from '../models/Conversation';
 import { AppError } from '../middleware/error.middleware';
+import { automationEngine } from './automationEngine.service';
 import Papa from 'papaparse';
 
 export class ContactService {
@@ -128,6 +129,18 @@ export class ContactService {
       await this.addToLists((contact._id as any).toString(), lists);
     }
 
+    // Trigger automation for contact created
+    automationEngine.triggerByEvent('contact_created', {
+      event: 'contact_created',
+      contactId: contact._id,
+      contact: {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        tags: contact.tags
+      }
+    }).catch(err => console.error('Automation trigger error:', err));
+
     return contact;
   }
 
@@ -159,11 +172,25 @@ export class ContactService {
   }
 
   async delete(contactId: string) {
-    const contact = await Customer.findByIdAndDelete(contactId);
+    const contact = await Customer.findById(contactId);
 
     if (!contact) {
       throw new AppError(404, 'NOT_FOUND', 'Contact not found');
     }
+
+    // Trigger automation for contact deleted (before deletion)
+    automationEngine.triggerByEvent('contact_deleted', {
+      event: 'contact_deleted',
+      contactId: contact._id,
+      contact: {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone
+      }
+    }).catch(err => console.error('Automation trigger error:', err));
+
+    // Delete the contact
+    await Customer.findByIdAndDelete(contactId);
 
     // Remove from all lists
     await ContactListMember.deleteMany({ contactId });
@@ -204,6 +231,15 @@ export class ContactService {
       .catch(err => {
         if (err.code !== 11000) throw err;
       });
+
+    // Trigger automation for each contact moved to list
+    for (const contactId of contactIds) {
+      automationEngine.triggerByEvent('contact_moved', {
+        event: 'contact_moved',
+        contactId,
+        listId
+      }).catch(err => console.error('Automation trigger error:', err));
+    }
 
     return { added: contactIds.length };
   }

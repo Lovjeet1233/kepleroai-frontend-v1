@@ -9,7 +9,9 @@ export interface IAutomationNode {
 }
 
 export interface IAutomation extends Document {
+  userId?: mongoose.Types.ObjectId;
   name: string;
+  description?: string;
   nodes: IAutomationNode[];
   isActive: boolean;
   executionCount: number;
@@ -19,10 +21,15 @@ export interface IAutomation extends Document {
 }
 
 const AutomationSchema = new Schema<IAutomation>({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  },
   name: {
     type: String,
     required: true
   },
+  description: String,
   nodes: [{
     id: { type: String, required: true },
     type: {
@@ -46,6 +53,8 @@ const AutomationSchema = new Schema<IAutomation>({
 }, { timestamps: true });
 
 AutomationSchema.index({ isActive: 1 });
+AutomationSchema.index({ userId: 1 });
+AutomationSchema.index({ 'nodes.service': 1 });
 
 export default mongoose.model<IAutomation>('Automation', AutomationSchema);
 

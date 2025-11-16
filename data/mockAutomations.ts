@@ -3,12 +3,45 @@ export interface AutomationNode {
   type: "trigger" | "delay" | "action";
   service: string;
   config: {
+    // Trigger config
     event?: string;
+    listId?: string;
+    source?: string;
+    
+    // Delay config
     delay?: number;
     delayUnit?: "minutes" | "hours" | "days";
+    
+    // Communication config
     template?: string;
     subject?: string;
     message?: string;
+    body?: string;
+    
+    // Contact config
+    name?: string;
+    email?: string;
+    phone?: string;
+    tags?: string[];
+    lists?: string[];
+    
+    // Call config
+    dynamicInstruction?: string;
+    language?: string;
+    transferTo?: string;
+    escalationCondition?: string;
+    
+    // API config
+    url?: string;
+    method?: string;
+    headers?: any;
+    params?: any;
+    
+    // WhatsApp config
+    variables?: Record<string, string>;
+    
+    // Generic
+    [key: string]: any;
   };
   position: number;
 }
@@ -25,18 +58,24 @@ export interface Automation {
 
 export const nodeServices = {
   triggers: [
+    { id: "keplero_contact_created", name: "Keplero AI - Contact Created", icon: "👤", color: "#6366f1" },
+    { id: "keplero_contact_deleted", name: "Keplero AI - Contact Deleted", icon: "🗑️", color: "#ef4444" },
+    { id: "keplero_contact_moved", name: "Keplero AI - Contact Moved", icon: "📋", color: "#8b5cf6" },
+    { id: "keplero_mass_sending", name: "Keplero AI - Mass Sending", icon: "📤", color: "#f59e0b" },
     { id: "facebook_leads", name: "Facebook Leads", icon: "📘", color: "#1877f2" },
     { id: "shopify_order", name: "Shopify Order", icon: "🛍️", color: "#96bf48" },
     { id: "cart_abandoned", name: "Cart Abandoned", icon: "🛒", color: "#f59e0b" },
     { id: "webhook", name: "Webhook", icon: "🔗", color: "#a855f7" },
-    { id: "form_submitted", name: "Form Submitted", icon: "📋", color: "#3b82f6" },
   ],
   actions: [
+    { id: "keplero_outbound_call", name: "Keplero AI - Outbound Call", icon: "📞", color: "#8b5cf6" },
+    { id: "keplero_send_sms", name: "Keplero AI - Send SMS", icon: "💬", color: "#10b981" },
+    { id: "keplero_send_email", name: "Keplero AI - Send Email", icon: "📧", color: "#3b82f6" },
+    { id: "keplero_create_contact", name: "Keplero AI - Create Contact", icon: "➕", color: "#6366f1" },
+    { id: "keplero_api_call", name: "Keplero AI - API Call", icon: "🔗", color: "#a855f7" },
     { id: "whatsapp_template", name: "WhatsApp Template", icon: "💬", color: "#25d366" },
     { id: "send_email", name: "Send Email", icon: "📧", color: "#3b82f6" },
-    { id: "make_call", name: "Make Call", icon: "📞", color: "#8b5cf6" },
     { id: "save_to_crm", name: "Save to CRM", icon: "💾", color: "#8b5cf6" },
-    { id: "create_task", name: "Create Task", icon: "✅", color: "#f59e0b" },
   ],
 };
 

@@ -3,8 +3,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IAutomationExecution extends Document {
   automationId: mongoose.Types.ObjectId;
   status: 'success' | 'failed' | 'pending';
-  triggerData: Record<string, any>;
-  actionData: Record<string, any>;
+  triggerData: any;
+  actionData: any;
   errorMessage?: string;
   executedAt: Date;
 }
@@ -21,12 +21,10 @@ const AutomationExecutionSchema = new Schema<IAutomationExecution>({
     required: true
   },
   triggerData: {
-    type: Map,
-    of: Schema.Types.Mixed
+    type: Schema.Types.Mixed
   },
   actionData: {
-    type: Map,
-    of: Schema.Types.Mixed
+    type: Schema.Types.Mixed
   },
   errorMessage: String,
   executedAt: {

@@ -96,6 +96,33 @@ export class AutomationController {
       next(error);
     }
   };
+
+  trigger = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const result = await this.automationService.triggerAutomation(
+        req.params.automationId,
+        req.body.triggerData,
+        { userId: req.user?.userId }
+      );
+      res.json(successResponse(result, 'Automation triggered successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  triggerByEvent = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { event, eventData } = req.body;
+      const result = await this.automationService.triggerByEvent(
+        event,
+        eventData,
+        { userId: req.user?.userId }
+      );
+      res.json(successResponse(result, `${result.length} automation(s) triggered`));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const automationController = new AutomationController();

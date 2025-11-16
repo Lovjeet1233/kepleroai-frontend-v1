@@ -14,6 +14,7 @@ router.post('/', controller.create);
 router.patch('/:campaignId', controller.update);
 router.delete('/:campaignId', controller.delete);
 router.post('/:campaignId/cancel', controller.cancel);
+router.post('/:campaignId/start', controller.start);
 router.get('/:campaignId/analytics', controller.getAnalytics);
 
 export default router;

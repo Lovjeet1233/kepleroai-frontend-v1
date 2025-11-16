@@ -1,6 +1,5 @@
+
 import { apiClient } from '@/lib/api';
-import config from '@/lib/config';
-import { mockConversations } from '@/data/mockConversations';
 
 export interface ConversationFilters {
   status?: string;
@@ -32,43 +31,79 @@ class ConversationService {
    */
   async getAll(filters?: ConversationFilters) {
     try {
-      // Demo mode - return mock data
-      if (config.isDemoMode) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        let filteredConversations = mockConversations;
-        
-        // Apply filters if provided
-        if (filters?.status && filters.status !== 'all') {
-          filteredConversations = filteredConversations.filter(
-            c => c.status === filters.status
-          );
-        }
-        
-        if (filters?.channel) {
-          filteredConversations = filteredConversations.filter(
-            c => c.channel === filters.channel
-          );
-        }
-        
-        return {
-          conversations: filteredConversations,
-          total: filteredConversations.length,
-          page: filters?.page || 1,
-          limit: filters?.limit || 50,
-          hasMore: false,
-        };
-      }
-
-      // Real API mode
       const response = await apiClient.get('/conversations', {
         params: filters,
       });
-      return response.data;
+      // Backend returns paginatedResponse: { success: true, data: { items: [...], pagination: {...} } }
+      const items = response.data?.data?.items || response.data?.items || [];
+      
+      // Transform backend conversations to frontend format
+      const conversations = items.map((conv: any) => {
+        const customerName = conv.customerId?.name || 'Unknown';
+        const avatar = conv.customerId?.avatar || this.generateAvatar(customerName);
+        const color = conv.customerId?.color || this.generateColor(customerName);
+        
+        // Get last message text
+        let lastMessageText = 'No messages yet';
+        if (conv.lastMessage?.text) {
+          lastMessageText = conv.lastMessage.text;
+        } else if (typeof conv.lastMessage === 'string') {
+          lastMessageText = conv.lastMessage;
+        } else if (conv.transcript) {
+          lastMessageText = 'Call transcript available';
+        }
+        
+        return {
+          id: conv._id || conv.id,
+          customer: {
+            name: customerName,
+            email: conv.customerId?.email || '',
+            phone: conv.customerId?.phone || '',
+            avatar,
+            color,
+          },
+          channel: conv.channel,
+          status: conv.status,
+          lastMessage: lastMessageText,
+          timestamp: conv.updatedAt || conv.createdAt || new Date().toISOString(),
+          unread: conv.unread || false,
+          labels: conv.labels || [],
+          folder: conv.folderId || null,
+          messages: conv.messages || [],
+          transcript: conv.transcript || null,
+        };
+      });
+      
+      return {
+        conversations,
+        pagination: response.data?.data?.pagination || response.data?.pagination,
+      };
     } catch (error: any) {
+      console.error('Failed to fetch conversations:', error);
       throw new Error(error.message || 'Failed to fetch conversations');
     }
+  }
+  
+  /**
+   * Generate avatar initials from name
+   */
+  private generateAvatar(name?: string): string {
+    if (!name) return '??';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+  
+  /**
+   * Generate consistent color from name
+   */
+  private generateColor(name?: string): string {
+    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4'];
+    if (!name) return colors[0];
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
   }
 
   /**
@@ -76,20 +111,43 @@ class ConversationService {
    */
   async getById(id: string) {
     try {
-      // Demo mode - return mock data
-      if (config.isDemoMode) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const conversation = mockConversations.find(c => c.id === id);
-        if (!conversation) {
-          throw new Error('Conversation not found');
-        }
-        return conversation;
-      }
-
-      // Real API mode
       const response = await apiClient.get(`/conversations/${id}`);
-      return response.data.conversation;
+      // Backend returns { success: true, data: {...conversation, messages: [...]} }
+      const conv = response.data.data || response.data.conversation || response.data;
+      
+      console.log('[ConversationService] Conversation detail:', {
+        id: conv._id,
+        hasMessages: !!conv.messages,
+        messageCount: conv.messages?.length || 0,
+        hasTranscript: !!conv.transcript,
+      });
+      
+      // Transform backend conversation to frontend format
+      const customerName = conv.customerId?.name || 'Unknown';
+      const avatar = conv.customerId?.avatar || this.generateAvatar(customerName);
+      const color = conv.customerId?.color || this.generateColor(customerName);
+      
+      return {
+        id: conv._id || conv.id,
+        customer: {
+          name: customerName,
+          email: conv.customerId?.email || '',
+          phone: conv.customerId?.phone || '',
+          avatar,
+          color,
+        },
+        channel: conv.channel,
+        status: conv.status,
+        lastMessage: conv.messages?.[conv.messages.length - 1]?.text || 'No messages yet',
+        timestamp: conv.updatedAt || conv.createdAt || new Date().toISOString(),
+        unread: conv.unread || false,
+        labels: conv.labels || [],
+        folder: conv.folderId || null,
+        messages: conv.messages || [],
+        transcript: conv.transcript || null,
+      };
     } catch (error: any) {
+      console.error('[ConversationService] Failed to fetch conversation:', error);
       throw new Error(error.message || 'Failed to fetch conversation');
     }
   }

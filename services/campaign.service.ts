@@ -35,9 +35,13 @@ class CampaignService {
       const response = await apiClient.get('/campaigns', {
         params: filters,
       });
-      return response.data;
+      // Backend returns paginatedResponse: { data: { items: [...], pagination: {...} } }
+      // Return just the items array, or empty array if no data
+      return response.data?.items || [];
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch campaigns');
+      // If campaigns endpoint doesn't exist yet, return empty array
+      console.warn('Campaigns endpoint error:', error.message);
+      return [];
     }
   }
 
@@ -47,7 +51,8 @@ class CampaignService {
   async getById(id: string) {
     try {
       const response = await apiClient.get(`/campaigns/${id}`);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch campaign');
     }
@@ -59,7 +64,8 @@ class CampaignService {
   async create(data: CreateCampaignData) {
     try {
       const response = await apiClient.post('/campaigns', data);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to create campaign');
     }
@@ -71,7 +77,8 @@ class CampaignService {
   async update(id: string, data: Partial<CreateCampaignData>) {
     try {
       const response = await apiClient.patch(`/campaigns/${id}`, data);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to update campaign');
     }
@@ -97,7 +104,8 @@ class CampaignService {
       const response = await apiClient.post(`/campaigns/${id}/schedule`, {
         scheduledAt,
       });
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to schedule campaign');
     }
@@ -109,7 +117,8 @@ class CampaignService {
   async cancel(id: string) {
     try {
       const response = await apiClient.post(`/campaigns/${id}/cancel`);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to cancel campaign');
     }
@@ -121,7 +130,8 @@ class CampaignService {
   async start(id: string) {
     try {
       const response = await apiClient.post(`/campaigns/${id}/start`);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to start campaign');
     }
@@ -133,7 +143,8 @@ class CampaignService {
   async pause(id: string) {
     try {
       const response = await apiClient.post(`/campaigns/${id}/pause`);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to pause campaign');
     }
@@ -145,7 +156,8 @@ class CampaignService {
   async resume(id: string) {
     try {
       const response = await apiClient.post(`/campaigns/${id}/resume`);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to resume campaign');
     }
@@ -169,9 +181,11 @@ class CampaignService {
   async getWhatsAppTemplates() {
     try {
       const response = await apiClient.get('/campaigns/whatsapp/templates');
-      return response.data.templates;
+      // Backend returns successResponse: { data: <templates array> }
+      return response.data || [];
     } catch (error: any) {
-      throw new Error(error.message || 'Failed to fetch WhatsApp templates');
+      console.warn('WhatsApp templates endpoint error:', error.message);
+      return [];
     }
   }
 
@@ -207,7 +221,8 @@ class CampaignService {
   async duplicate(id: string) {
     try {
       const response = await apiClient.post(`/campaigns/${id}/duplicate`);
-      return response.data.campaign;
+      // Backend returns successResponse: { data: <campaign> }
+      return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to duplicate campaign');
     }

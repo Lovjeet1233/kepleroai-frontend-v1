@@ -8,11 +8,27 @@ export interface IFollowUp {
   order: number;
 }
 
+export interface ISMSBody {
+  message: string;
+}
+
+export interface IEmailBody {
+  subject: string;
+  body: string;
+  is_html: boolean;
+}
+
 export interface ICampaign extends Document {
   name: string;
   listId: mongoose.Types.ObjectId;
-  templateId: string;
-  templateVariables: Record<string, string>;
+  communicationTypes: ('call' | 'sms' | 'email')[];
+  smsBody?: ISMSBody;
+  emailBody?: IEmailBody;
+  templateId?: string;
+  templateVariables?: Record<string, string>;
+  dynamicInstruction?: string;
+  language?: string;
+  emotion?: string;
   status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
   scheduledAt?: Date;
   sentAt?: Date;
@@ -32,14 +48,32 @@ const CampaignSchema = new Schema<ICampaign>({
     ref: 'ContactList',
     required: true
   },
-  templateId: {
+  communicationTypes: [{
     type: String,
+    enum: ['call', 'sms', 'email'],
     required: true
+  }],
+  smsBody: {
+    message: String
   },
+  emailBody: {
+    subject: String,
+    body: String,
+    is_html: { type: Boolean, default: false }
+  },
+  templateId: String,
   templateVariables: {
     type: Map,
-    of: String,
-    default: {}
+    of: String
+  },
+  dynamicInstruction: String,
+  language: {
+    type: String,
+    default: 'en'
+  },
+  emotion: {
+    type: String,
+    default: 'Calm'
   },
   status: {
     type: String,

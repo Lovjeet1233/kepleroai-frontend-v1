@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ConversationService } from '../services/conversation.service';
 import { successResponse, paginatedResponse } from '../utils/response.util';
@@ -134,6 +134,15 @@ export class ConversationController {
     }
   };
 
+  bulkCreate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const result = await this.conversationService.bulkCreate(req.body.conversations);
+      res.json(successResponse(result, 'Conversations created'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   bulkDelete = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const result = await this.conversationService.bulkDelete(req.body.conversationIds);
@@ -148,6 +157,24 @@ export class ConversationController {
       const { query, ...filters } = req.query;
       const results = await this.conversationService.searchMessages(query as string, filters);
       res.json(successResponse({ results, total: results.length }));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Save widget conversation (no auth required for public widget)
+  saveWidgetConversation = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name, threadId, collection, messages } = req.body;
+      
+      const conversation = await this.conversationService.saveWidgetConversation({
+        name,
+        threadId,
+        collection,
+        messages
+      });
+
+      res.json(successResponse(conversation, 'Conversation saved'));
     } catch (error) {
       next(error);
     }

@@ -8,6 +8,8 @@ import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { KanbanBoard } from "@/components/contacts/KanbanBoard";
 import { ContactModal } from "@/components/contacts/ContactModal";
 import { CSVImportModal } from "@/components/contacts/CSVImportModal";
+import { AddListModal } from "@/components/contacts/AddListModal";
+import { AddToListModal } from "@/components/contacts/AddToListModal";
 import { 
   useContacts, 
   useContactLists, 
@@ -15,11 +17,14 @@ import {
   useUpdateContact, 
   useDeleteContact, 
   useBulkDeleteContacts,
-  useCreateListWithCSV
+  useCreateList,
+  useBulkAddToList
 } from "@/hooks/useContacts";
+import { contactService } from "@/services/contact.service";
 import { ContactCardSkeleton } from "@/components/LoadingSkeleton";
 import { NoContacts } from "@/components/EmptyState";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ContactsPage() {
   const [selectedList, setSelectedList] = useState("all");
@@ -27,6 +32,8 @@ export default function ContactsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCSVImportOpen, setIsCSVImportOpen] = useState(false);
+  const [isAddListModalOpen, setIsAddListModalOpen] = useState(false);
+  const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<any | null>(null);
 
   // Fetch contacts and lists from API
@@ -40,7 +47,9 @@ export default function ContactsPage() {
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
   const bulkDeleteContacts = useBulkDeleteContacts();
-  const createListWithCSV = useCreateListWithCSV();
+  const createList = useCreateList();
+  const bulkAddToList = useBulkAddToList();
+  const queryClient = useQueryClient();
 
   const contacts = contactsData?.contacts || [];
   const lists = listsData || [];
@@ -94,8 +103,31 @@ export default function ContactsPage() {
     }
   };
 
-  const handleCSVImport = async (file: File, listName: string) => {
-    await createListWithCSV.mutateAsync({ file, listName });
+  const handleCSVImport = async (file: File) => {
+    if (selectedList === "all") {
+      toast.error("Please select a list first");
+      return;
+    }
+    try {
+      // Import contacts to the currently selected list
+      const result: any = await contactService.importCSV(file, selectedList);
+      toast.success(`Imported ${result.imported} contacts successfully`);
+      // Refresh contacts and lists
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['contact-lists'] });
+      setIsCSVImportOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to import contacts");
+    }
+  };
+
+  const handleCreateList = async (name: string) => {
+    await createList.mutateAsync(name);
+  };
+
+  const handleAddToList = async (listId: string) => {
+    await bulkAddToList.mutateAsync({ contactIds: selectedIds, listId });
+    setIsAddToListModalOpen(false);
   };
 
   // Loading state
@@ -173,7 +205,7 @@ export default function ContactsPage() {
 
         <div className="p-3">
           <button
-            onClick={() => setIsCSVImportOpen(true)}
+            onClick={() => setIsAddListModalOpen(true)}
             className="w-full h-10 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -214,13 +246,15 @@ export default function ContactsPage() {
           </div>
 
           <div className="flex gap-3">
-            <button
-              onClick={() => setIsCSVImportOpen(true)}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add List</span>
-            </button>
+            {selectedList !== "all" && (
+              <button
+                onClick={() => setIsCSVImportOpen(true)}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Import CSV</span>
+              </button>
+            )}
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
@@ -238,7 +272,10 @@ export default function ContactsPage() {
               {selectedIds.length} selected
             </span>
             <div className="flex gap-3">
-              <button className="px-4 py-2 bg-white/10 text-foreground rounded-lg text-sm font-medium hover:bg-white/20 transition-colors">
+              <button 
+                onClick={() => setIsAddToListModalOpen(true)}
+                className="px-4 py-2 bg-white/10 text-foreground rounded-lg text-sm font-medium hover:bg-white/20 transition-colors"
+              >
                 Add to list
               </button>
               <button
@@ -289,6 +326,15 @@ export default function ContactsPage() {
             : undefined
         }
         mode={editingContact ? "edit" : "add"}
+        lists={lists}
+        preSelectedListId={selectedList !== "all" ? selectedList : undefined}
+      />
+
+      {/* Add List Modal */}
+      <AddListModal
+        isOpen={isAddListModalOpen}
+        onClose={() => setIsAddListModalOpen(false)}
+        onSave={handleCreateList}
       />
 
       {/* CSV Import Modal */}
@@ -296,6 +342,16 @@ export default function ContactsPage() {
         isOpen={isCSVImportOpen}
         onClose={() => setIsCSVImportOpen(false)}
         onImport={handleCSVImport}
+        listName={lists.find((l: any) => (l.id || l._id) === selectedList)?.name}
+      />
+
+      {/* Add to List Modal */}
+      <AddToListModal
+        isOpen={isAddToListModalOpen}
+        onClose={() => setIsAddToListModalOpen(false)}
+        onSave={handleAddToList}
+        lists={lists}
+        selectedCount={selectedIds.length}
       />
     </div>
   );

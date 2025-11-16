@@ -74,6 +74,16 @@ export class CampaignController {
     }
   };
 
+  start = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const result = await this.campaignService.start(req.params.campaignId, userId);
+      res.json(successResponse(result, 'Campaign started successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getAnalytics = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const analytics = await this.campaignService.getAnalytics(req.params.campaignId);

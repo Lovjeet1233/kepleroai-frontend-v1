@@ -4,13 +4,15 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { X } from "lucide-react";
+import { X, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phone: z.string().min(1, "Phone is required"),
   tags: z.array(z.string()).optional(),
+  listIds: z.array(z.string()).optional(),
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -21,6 +23,8 @@ interface ContactModalProps {
   onSave: (data: ContactFormData) => Promise<void>;
   initialData?: Partial<ContactFormData>;
   mode?: "add" | "edit";
+  lists?: any[];
+  preSelectedListId?: string;
 }
 
 export function ContactModal({
@@ -29,8 +33,13 @@ export function ContactModal({
   onSave,
   initialData,
   mode = "add",
+  lists = [],
+  preSelectedListId,
 }: ContactModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedLists, setSelectedLists] = useState<string[]>(
+    preSelectedListId ? [preSelectedListId] : (initialData?.listIds || [])
+  );
   
   const {
     register,
@@ -42,11 +51,20 @@ export function ContactModal({
     defaultValues: initialData || { name: "", email: "", phone: "", tags: [] },
   });
 
+  const toggleList = (listId: string) => {
+    setSelectedLists((prev) =>
+      prev.includes(listId)
+        ? prev.filter((id) => id !== listId)
+        : [...prev, listId]
+    );
+  };
+
   const onSubmit = async (data: ContactFormData) => {
     try {
       setIsSubmitting(true);
-      await onSave(data);
+      await onSave({ ...data, listIds: selectedLists });
       reset();
+      setSelectedLists([]);
       onClose();
     } catch (error) {
       // Error is handled by parent component
@@ -58,6 +76,7 @@ export function ContactModal({
 
   const handleClose = () => {
     reset();
+    setSelectedLists([]);
     onClose();
   };
 
@@ -122,6 +141,42 @@ export function ContactModal({
               <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>
             )}
           </div>
+
+          {/* Lists Selection */}
+          {lists.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Add to Lists (Optional)
+              </label>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                {lists.map((list) => (
+                  <button
+                    key={list.id || list._id}
+                    type="button"
+                    onClick={() => toggleList(list.id || list._id)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-left",
+                      selectedLists.includes(list.id || list._id)
+                        ? "bg-primary/20 border border-primary"
+                        : "bg-secondary hover:bg-accent"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0",
+                      selectedLists.includes(list.id || list._id)
+                        ? "border-primary bg-primary"
+                        : "border-muted-foreground"
+                    )}>
+                      {selectedLists.includes(list.id || list._id) && (
+                        <Check className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                    <span className="text-sm text-foreground">{list.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <button

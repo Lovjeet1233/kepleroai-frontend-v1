@@ -12,11 +12,15 @@ import labelRoutes from './routes/label.routes';
 import templateRoutes from './routes/template.routes';
 import knowledgeBaseRoutes from './routes/knowledgeBase.routes';
 import promptRoutes from './routes/prompt.routes';
+import aiBehaviorRoutes from './routes/aiBehavior.routes';
+import chatbotRoutes from './routes/chatbot.routes';
 import contactRoutes from './routes/contact.routes';
 import campaignRoutes from './routes/campaign.routes';
 import automationRoutes from './routes/automation.routes';
 import webhookRoutes from './routes/webhook.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import phoneSettingsRoutes from './routes/phoneSettings.routes';
+import toolRoutes from './routes/tool.routes';
 
 // Load environment variables
 dotenv.config();
@@ -49,8 +53,13 @@ app.get('/', (req, res) => {
       automations: '/api/v1/automations',
       analytics: '/api/v1/analytics',
       knowledgeBase: '/api/v1/training/knowledge-bases',
+      knowledgeBasesAlias: '/api/v1/knowledge-bases',
       prompts: '/api/v1/training/prompts',
-      webhooks: '/api/v1/webhooks'
+      aiBehavior: '/api/v1/ai-behavior',
+      chatbot: '/api/v1/chatbot',
+      webhooks: '/api/v1/webhooks',
+      phoneSettings: '/api/v1/phone-settings',
+      tools: '/api/v1/tools'
     },
     documentation: 'Swagger UI not yet implemented - use Postman collection',
     timestamp: new Date().toISOString()
@@ -74,12 +83,17 @@ app.use('/api/v1/conversations/labels', labelRoutes);
 app.use('/api/v1/conversations', conversationRoutes);
 app.use('/api/v1/settings/templates', templateRoutes);
 app.use('/api/v1/training/knowledge-bases', knowledgeBaseRoutes);
+app.use('/api/v1/knowledge-bases', knowledgeBaseRoutes); // Alias for easier access
 app.use('/api/v1/training/prompts', promptRoutes);
+app.use('/api/v1/ai-behavior', aiBehaviorRoutes);
+app.use('/api/v1/chatbot', chatbotRoutes);
 app.use('/api/v1/contacts', contactRoutes);
 app.use('/api/v1/campaigns', campaignRoutes);
 app.use('/api/v1/automations', automationRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/phone-settings', phoneSettingsRoutes);
+app.use('/api/v1/tools', toolRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AiStein.it - AI Chatbot Management Platform",
-  description: "AI-powered chatbot management platform by AiStein.it",
+  title: "IslandAI - Chatbot Management Platform",
+  description: "AI-powered chatbot management platform",
 };
 
 export default function RootLayout({

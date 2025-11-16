@@ -1,108 +1,154 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { TrainingSidebar } from "@/components/training/TrainingSidebar";
-import { Link2, CheckCircle, XCircle } from "lucide-react";
+import { IntegrationModal } from "@/components/integrations/IntegrationModal";
+import { IntegrationList } from "@/components/integrations/IntegrationList";
+import { integrationService, Tool } from "@/services/integration.service";
+import { Plus, RefreshCw } from "lucide-react";
 
 export default function IntegrationsPage() {
-  const integrations = [
-    {
-      id: "shopify",
-      name: "Shopify",
-      description: "Sync products, orders, and customer data",
-      icon: "🛍️",
-      connected: true,
-    },
-    {
-      id: "stripe",
-      name: "Stripe",
-      description: "Process payments and manage subscriptions",
-      icon: "💳",
-      connected: true,
-    },
-    {
-      id: "hubspot",
-      name: "HubSpot CRM",
-      description: "Sync contacts and deals",
-      icon: "📊",
-      connected: false,
-    },
-    {
-      id: "salesforce",
-      name: "Salesforce",
-      description: "Enterprise CRM integration",
-      icon: "☁️",
-      connected: false,
-    },
-    {
-      id: "zapier",
-      name: "Zapier",
-      description: "Connect with 5000+ apps",
-      icon: "⚡",
-      connected: false,
-    },
-    {
-      id: "slack",
-      name: "Slack",
-      description: "Get notifications in Slack channels",
-      icon: "💬",
-      connected: false,
-    },
-  ];
+  const [integrations, setIntegrations] = useState<Tool[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTool, setEditingTool] = useState<Tool | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch all integrations
+  const fetchIntegrations = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const tools = await integrationService.getAll();
+      setIntegrations(tools);
+    } catch (err: any) {
+      console.error('Error fetching integrations:', err);
+      setError(err.message || 'Failed to load integrations');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIntegrations();
+  }, []);
+
+  // Handle create/update integration
+  const handleSubmit = async (data: {
+    tool_name: string;
+    tool_type: string;
+    description: string;
+    properties: any[];
+  }) => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      if (editingTool) {
+        // Update existing tool
+        await integrationService.update(editingTool.tool_id, data);
+      } else {
+        // Create new tool
+        await integrationService.register(data);
+      }
+
+      // Refresh the list
+      await fetchIntegrations();
+
+      // Close modal and reset
+      setIsModalOpen(false);
+      setEditingTool(null);
+    } catch (err: any) {
+      console.error('Error saving integration:', err);
+      setError(err.message || 'Failed to save integration');
+      alert(err.message || 'Failed to save integration');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle delete integration
+  const handleDelete = async (toolId: string) => {
+    try {
+      setError(null);
+      await integrationService.delete(toolId);
+      
+      // Refresh the list
+      await fetchIntegrations();
+    } catch (err: any) {
+      console.error('Error deleting integration:', err);
+      setError(err.message || 'Failed to delete integration');
+      alert(err.message || 'Failed to delete integration');
+    }
+  };
+
+  // Handle edit integration
+  const handleEdit = (tool: Tool) => {
+    setEditingTool(tool);
+    setIsModalOpen(true);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingTool(null);
+  };
 
   return (
     <div className="flex h-full">
       <TrainingSidebar />
       <div className="flex-1 p-8 overflow-y-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Integrations</h1>
-        <p className="text-muted-foreground mb-8">
-          Connect your favorite tools and platforms
-        </p>
-
-        <div className="grid grid-cols-2 gap-6 max-w-4xl">
-          {integrations.map((integration) => (
-            <div
-              key={integration.id}
-              className="bg-card border border-border rounded-xl p-6 hover:border-primary transition-colors"
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Integrations</h1>
+            <p className="text-muted-foreground">
+              Create and manage custom integrations and automation tools
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchIntegrations}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-xl font-medium hover:bg-accent transition-colors"
+              disabled={isLoading}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center text-2xl">
-                    {integration.icon}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {integration.name}
-                    </h3>
-                    {integration.connected ? (
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span className="text-xs text-green-500">Connected</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <XCircle className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Not connected</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <Link2 className="w-5 h-5 text-muted-foreground" />
-              </div>
-
-              <p className="text-sm text-muted-foreground mb-4">
-                {integration.description}
-              </p>
-
-              <button
-                className={`w-full h-10 rounded-lg text-sm font-medium transition-all ${
-                  integration.connected
-                    ? "bg-secondary text-foreground hover:bg-accent"
-                    : "bg-primary text-foreground hover:brightness-110"
-                }`}
-              >
-                {integration.connected ? "Configure" : "Connect"}
-              </button>
-            </div>
-          ))}
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-2 bg-primary text-foreground rounded-xl font-medium hover:brightness-110 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              New Integration
+            </button>
+          </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <p className="text-sm text-red-500">{error}</p>
+          </div>
+        )}
+
+        {/* Integration List */}
+        <IntegrationList
+          integrations={integrations}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          isLoading={isLoading}
+        />
+
+        {/* Integration Modal */}
+        <IntegrationModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSubmit={handleSubmit}
+          editingTool={editingTool}
+          isLoading={isSubmitting}
+        />
       </div>
     </div>
   );

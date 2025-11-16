@@ -108,6 +108,14 @@ export class AutomationService {
   async testAutomation(automationId: string, testData: any) {
     return await this.engine.testAutomation(automationId, testData);
   }
+
+  async triggerAutomation(automationId: string, triggerData: any, context?: any) {
+    return await this.engine.executeAutomation(automationId, triggerData, context);
+  }
+
+  async triggerByEvent(event: string, eventData: any, context?: any) {
+    return await this.engine.triggerByEvent(event, eventData, context);
+  }
 }
 
 export const automationService = new AutomationService();

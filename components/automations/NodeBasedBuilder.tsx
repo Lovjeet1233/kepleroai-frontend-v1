@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, List, MoreVertical, Trash2, Check } from "lucide-react";
 import { Automation, AutomationNode as NodeType, nodeServices } from "@/data/mockAutomations";
 import { AutomationNode } from "./AutomationNode";
 import { NodeConnector } from "./NodeConnector";
 import { NodeConfigPanel } from "./NodeConfigPanel";
 import { AutomationList } from "./AutomationList";
+import { apiClient } from "@/lib/api";
+import { toast } from "@/lib/toast";
 
 interface NodeBasedBuilderProps {
   automations: Automation[];
+  onAutomationsChange?: (automations: Automation[]) => void;
 }
 
-export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedBuilderProps) {
+export function NodeBasedBuilder({ automations: initialAutomations, onAutomationsChange }: NodeBasedBuilderProps) {
   const [automations, setAutomations] = useState(initialAutomations);
   const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(
     initialAutomations[0]?.id || null
@@ -20,6 +23,24 @@ export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedB
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showNodeSelector, setShowNodeSelector] = useState(false);
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Update automations when prop changes
+  useEffect(() => {
+    setAutomations(initialAutomations);
+    if (initialAutomations.length > 0 && !selectedAutomationId) {
+      setSelectedAutomationId(initialAutomations[0].id);
+    }
+  }, [initialAutomations]);
+
+  // Helper function to update automations and notify parent
+  const updateAutomations = (newAutomations: Automation[]) => {
+    setAutomations(newAutomations);
+    if (onAutomationsChange) {
+      onAutomationsChange(newAutomations);
+    }
+  };
 
   const selectedAutomation = automations.find(
     (a) => a.id === selectedAutomationId
@@ -58,11 +79,10 @@ export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedB
       node.position = index;
     });
 
-    setAutomations(
-      automations.map((a) =>
-        a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
-      )
+    const updatedAutomations = automations.map((a) =>
+      a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
     );
+    updateAutomations(updatedAutomations);
 
     setShowNodeSelector(false);
     setInsertPosition(null);
@@ -87,11 +107,10 @@ export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedB
       node.position = index;
     });
 
-    setAutomations(
-      automations.map((a) =>
-        a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
-      )
+    const updatedAutomations = automations.map((a) =>
+      a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
     );
+    updateAutomations(updatedAutomations);
 
     setShowNodeSelector(false);
     setInsertPosition(null);
@@ -105,11 +124,10 @@ export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedB
       node.id === selectedNodeId ? { ...node, config } : node
     );
 
-    setAutomations(
-      automations.map((a) =>
-        a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
-      )
+    const updatedAutomations = automations.map((a) =>
+      a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
     );
+    updateAutomations(updatedAutomations);
   };
 
   const handleDeleteNode = (nodeId: string) => {
@@ -119,44 +137,135 @@ export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedB
       .filter((node) => node.id !== nodeId)
       .map((node, index) => ({ ...node, position: index }));
 
-    setAutomations(
-      automations.map((a) =>
-        a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
-      )
+    const updatedAutomations = automations.map((a) =>
+      a.id === selectedAutomationId ? { ...a, nodes: updatedNodes } : a
     );
+    updateAutomations(updatedAutomations);
 
     setSelectedNodeId(null);
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedAutomation) return;
 
-    setAutomations(
-      automations.map((a) =>
+    const newStatus = selectedAutomation.status === "enabled" ? "disabled" : "enabled";
+    const isActive = newStatus === "enabled";
+
+    try {
+      // Update in backend
+      await apiClient.patch(`/automations/${selectedAutomationId}/toggle`, {
+        isActive
+      });
+
+      // Update local state
+      const updatedAutomations = automations.map((a) =>
         a.id === selectedAutomationId
           ? {
               ...a,
-              status: a.status === "enabled" ? "disabled" : "enabled",
+              status: newStatus as "enabled" | "disabled",
             }
           : a
-      )
-    );
+      );
+      updateAutomations(updatedAutomations);
+
+      toast.success(`Automation ${isActive ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      toast.error(`Failed to ${isActive ? 'enable' : 'disable'} automation: ${error.message}`);
+    }
   };
 
-  const handleNewAutomation = () => {
-    const newAutomation: Automation = {
-      id: `auto_${Date.now()}`,
-      name: `Automation ${automations.length + 1}`,
-      status: "disabled",
-      nodes: [],
-      lastExecuted: null,
-      executionCount: 0,
-      createdAt: new Date().toISOString(),
-    };
+  const handleNewAutomation = async () => {
+    try {
+      console.log('Creating new automation...');
+      const response = await apiClient.post('/automations', {
+        name: `Automation ${automations.length + 1}`,
+        nodes: [],
+        isActive: false
+      });
 
-    setAutomations([...automations, newAutomation]);
-    setSelectedAutomationId(newAutomation.id);
-    setSelectedNodeId(null);
+      console.log('Response:', response);
+
+      // Handle both response formats
+      const data = response.data?.data || response.data;
+      
+      if (data && data._id) {
+        const newAutomation: Automation = {
+          id: data._id,
+          name: data.name,
+          status: data.isActive ? "enabled" : "disabled",
+          nodes: data.nodes || [],
+          lastExecuted: data.lastExecutedAt || null,
+          executionCount: data.executionCount || 0,
+          createdAt: data.createdAt || new Date().toISOString(),
+        };
+
+        console.log('New automation:', newAutomation);
+
+        const newAutomations = [...automations, newAutomation];
+        updateAutomations(newAutomations);
+        setSelectedAutomationId(newAutomation.id);
+        setSelectedNodeId(null);
+        toast.success('New automation created');
+      } else {
+        console.error('Invalid response structure:', response);
+        toast.error('Failed to create automation: Invalid response');
+      }
+    } catch (error: any) {
+      console.error('Error creating automation:', error);
+      toast.error('Failed to create automation: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleSaveAutomation = async () => {
+    if (!selectedAutomation) return;
+
+    setSaving(true);
+    try {
+      // Transform nodes to backend format
+      const backendNodes = selectedAutomation.nodes.map(node => ({
+        id: node.id,
+        type: node.type,
+        service: node.service,
+        config: node.config,
+        position: node.position
+      }));
+
+      await apiClient.patch(`/automations/${selectedAutomationId}`, {
+        name: selectedAutomation.name,
+        nodes: backendNodes
+      });
+
+      toast.success('Automation saved successfully');
+    } catch (error: any) {
+      toast.error('Failed to save automation: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAutomation = async () => {
+    if (!selectedAutomation) return;
+    
+    if (!confirm(`Are you sure you want to delete "${selectedAutomation.name}"?`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await apiClient.delete(`/automations/${selectedAutomationId}`);
+
+      // Remove from local state
+      const updatedAutomations = automations.filter(a => a.id !== selectedAutomationId);
+      updateAutomations(updatedAutomations);
+      setSelectedAutomationId(updatedAutomations[0]?.id || null);
+      setSelectedNodeId(null);
+
+      toast.success('Automation deleted successfully');
+    } catch (error: any) {
+      toast.error('Failed to delete automation: ' + error.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const selectedNode = selectedAutomation?.nodes.find(
@@ -257,13 +366,21 @@ export function NodeBasedBuilder({ automations: initialAutomations }: NodeBasedB
 
         {/* Bottom bar */}
         <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-end gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-red-600 text-red-600 rounded-lg text-sm font-medium hover:bg-red-600/10 transition-colors">
+          <button 
+            onClick={handleDeleteAutomation}
+            disabled={deleting || !selectedAutomation}
+            className="flex items-center gap-2 px-4 py-2 border border-red-600 text-red-600 rounded-lg text-sm font-medium hover:bg-red-600/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Trash2 className="w-4 h-4" />
-            <span>Delete</span>
+            <span>{deleting ? 'Deleting...' : 'Delete'}</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:brightness-110 transition-all">
+          <button 
+            onClick={handleSaveAutomation}
+            disabled={saving || !selectedAutomation}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Check className="w-4 h-4" />
-            <span>Save</span>
+            <span>{saving ? 'Saving...' : 'Save'}</span>
           </button>
         </div>
       </div>

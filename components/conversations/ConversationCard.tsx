@@ -22,7 +22,7 @@ export function ConversationCard({
     return `${hours}:${minutes}`;
   };
 
-  const isVoiceMessage = conversation.messages.some((m) => m.type === "voice");
+  const isVoiceMessage = conversation.messages?.some((m) => m.type === "voice") || conversation.channel === "phone";
 
   return (
     <div

@@ -31,8 +31,12 @@ export function AutomationList({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-foreground">Automations</h2>
           <button
-            onClick={onNew}
+            onClick={() => {
+              console.log('Add automation button clicked');
+              onNew();
+            }}
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
+            title="Create new automation"
           >
             <Plus className="w-5 h-5" />
           </button>

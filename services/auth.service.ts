@@ -1,6 +1,4 @@
 import { apiClient } from '@/lib/api';
-import config from '@/lib/config';
-import { mockUser } from '@/data/mockUser';
 
 export interface LoginCredentials {
   email: string;
@@ -44,33 +42,6 @@ class AuthService {
    */
   async login(credentials: LoginCredentials): Promise<User> {
     try {
-      // Demo mode - use mock user
-      if (config.isDemoMode) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Accept any credentials in demo mode
-        const user: User = {
-          id: mockUser.id,
-          email: credentials.email,
-          name: mockUser.name,
-          role: mockUser.role,
-          organizationId: 'demo-org-1',
-          status: 'active',
-          createdAt: mockUser.createdAt,
-        };
-        
-        const token = 'demo-token-' + Date.now();
-        const refreshToken = 'demo-refresh-token-' + Date.now();
-
-        // Store tokens and user in localStorage
-        this.storeTokens(token, refreshToken);
-        this.storeUser(user);
-
-        return user;
-      }
-
-      // Real API mode
       const response: AuthResponse = await apiClient.post('/auth/login', credentials);
       
       const { user, token, refreshToken } = response.data;
@@ -128,26 +99,6 @@ class AuthService {
    */
   async getCurrentUser(): Promise<User> {
     try {
-      // Demo mode - return stored user
-      if (config.isDemoMode) {
-        const storedUser = this.getStoredUser();
-        if (storedUser) {
-          return storedUser;
-        }
-        
-        // Return default mock user if no stored user
-        return {
-          id: mockUser.id,
-          email: mockUser.email,
-          name: mockUser.name,
-          role: mockUser.role,
-          organizationId: 'demo-org-1',
-          status: 'active',
-          createdAt: mockUser.createdAt,
-        };
-      }
-
-      // Real API mode
       const response = await apiClient.get('/auth/me');
       console.log('📦 /auth/me response:', response);
       

@@ -226,14 +226,33 @@ export function useCreateList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, description }: { name: string; description?: string }) =>
-      contactService.createList(name, description),
+    mutationFn: (name: string) => contactService.createList(name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contact-lists'] });
-      toast.success('List created');
+      toast.success('List created successfully');
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to create list');
+    },
+  });
+}
+
+/**
+ * Bulk add to list mutation
+ */
+export function useBulkAddToList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ contactIds, listId }: { contactIds: string[]; listId: string }) =>
+      contactService.bulkAddToList(contactIds, listId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['contact-lists'] });
+      toast.success('Contacts added to list successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to add contacts to list');
     },
   });
 }

@@ -1,95 +1,68 @@
-import { useQuery } from '@tanstack/react-query';
-import { analyticsService, AnalyticsFilters } from '@/services/analytics.service';
+import { useState, useEffect, useCallback } from 'react';
+import { analyticsService, AnalyticsFilters, DashboardMetrics, TrendsData, PerformanceMetrics } from '@/services/analytics.service';
 
-/**
- * Fetch dashboard metrics
- */
-export function useDashboardMetrics(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'dashboard', filters],
-    queryFn: () => analyticsService.getDashboardMetrics(filters),
-    refetchInterval: 60000, // Refetch every minute
-  });
+export function useAnalytics(days: number = 7) {
+  const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null);
+  const [trends, setTrends] = useState<TrendsData | null>(null);
+  const [performance, setPerformance] = useState<PerformanceMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Calculate date range based on days
+  const getDateRange = useCallback((days: number) => {
+    const dateTo = new Date();
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - days);
+    
+    return {
+      dateFrom: dateFrom.toISOString(),
+      dateTo: dateTo.toISOString(),
+      groupBy: 'day' as const,
+    };
+  }, []);
+
+  // Fetch all analytics data
+  const fetchAnalytics = useCallback(async (days: number) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const filters: AnalyticsFilters = getDateRange(days);
+
+      // Fetch all data in parallel
+      const [dashboardData, trendsData, performanceData] = await Promise.all([
+        analyticsService.getDashboardMetrics(filters),
+        analyticsService.getConversationTrends(filters),
+        analyticsService.getPerformanceMetrics(filters),
+      ]);
+
+      setDashboardMetrics(dashboardData);
+      setTrends(trendsData);
+      setPerformance(performanceData);
+    } catch (err: any) {
+      console.error('Error fetching analytics:', err);
+      setError(err.message || 'Failed to load analytics');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getDateRange]);
+
+  // Fetch on mount and when days change
+  useEffect(() => {
+    fetchAnalytics(days);
+  }, [days, fetchAnalytics]);
+
+  // Refresh data
+  const refresh = useCallback(() => {
+    fetchAnalytics(days);
+  }, [days, fetchAnalytics]);
+
+  return {
+    dashboardMetrics,
+    trends,
+    performance,
+    isLoading,
+    error,
+    refresh,
+  };
 }
-
-/**
- * Fetch conversation trends
- */
-export function useConversationTrends(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'conversation-trends', filters],
-    queryFn: () => analyticsService.getConversationTrends(filters),
-  });
-}
-
-/**
- * Fetch message statistics
- */
-export function useMessageStats(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'message-stats', filters],
-    queryFn: () => analyticsService.getMessageStats(filters),
-  });
-}
-
-/**
- * Fetch response time metrics
- */
-export function useResponseTimeMetrics(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'response-time', filters],
-    queryFn: () => analyticsService.getResponseTimeMetrics(filters),
-  });
-}
-
-/**
- * Fetch operator performance
- */
-export function useOperatorPerformance(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'operator-performance', filters],
-    queryFn: () => analyticsService.getOperatorPerformance(filters),
-  });
-}
-
-/**
- * Fetch channel distribution
- */
-export function useChannelDistribution(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'channel-distribution', filters],
-    queryFn: () => analyticsService.getChannelDistribution(filters),
-  });
-}
-
-/**
- * Fetch AI performance metrics
- */
-export function useAIPerformance(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'ai-performance', filters],
-    queryFn: () => analyticsService.getAIPerformance(filters),
-  });
-}
-
-/**
- * Fetch conversation topics
- */
-export function useTopics(filters?: AnalyticsFilters) {
-  return useQuery({
-    queryKey: ['analytics', 'topics', filters],
-    queryFn: () => analyticsService.getTopics(filters),
-  });
-}
-
-/**
- * Fetch real-time statistics
- */
-export function useRealTimeStats() {
-  return useQuery({
-    queryKey: ['analytics', 'realtime'],
-    queryFn: () => analyticsService.getRealTimeStats(),
-    refetchInterval: 5000, // Refetch every 5 seconds
-  });
-}
-

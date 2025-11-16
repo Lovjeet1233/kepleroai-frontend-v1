@@ -9,6 +9,8 @@ export interface IConversation extends Document {
   isAiManaging: boolean;
   unread: boolean;
   labels: string[];
+  transcript?: Record<string, any>;
+  campaignId?: mongoose.Types.ObjectId;
   firstResponseAt?: Date;
   resolvedAt?: Date;
   createdAt: Date;
@@ -48,6 +50,14 @@ const ConversationSchema = new Schema<IConversation>({
     default: true
   },
   labels: [String],
+  transcript: {
+    type: Schema.Types.Mixed,
+    default: null
+  },
+  campaignId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Campaign'
+  },
   firstResponseAt: Date,
   resolvedAt: Date
 }, { timestamps: true });

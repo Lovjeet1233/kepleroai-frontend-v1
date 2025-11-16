@@ -3,6 +3,8 @@ import FAQ from '../models/FAQ';
 import Website from '../models/Website';
 import File from '../models/File';
 import { AppError } from '../middleware/error.middleware';
+import { ragService } from './rag.service';
+import { pythonRagService } from './pythonRag.service';
 import Papa from 'papaparse';
 
 export class KnowledgeBaseService {
@@ -29,9 +31,33 @@ export class KnowledgeBaseService {
   }
 
   // Create knowledge base
-  async create(name: string) {
-    const kb = await KnowledgeBase.create({ name });
-    return kb;
+  async create(name: string, userId: string) {
+    try {
+      // Generate unique collection name
+      const collectionName = `kb_${Date.now()}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      
+      console.log(`[KB Service] Creating knowledge base: ${name} with collection: ${collectionName}`);
+      
+      // Create collection in Python RAG system first
+      await pythonRagService.createCollection(collectionName);
+      
+      // Create knowledge base record in MongoDB
+      const kb = await KnowledgeBase.create({ 
+        userId,
+        name,
+        collectionName 
+      });
+      
+      console.log(`[KB Service] ✅ Knowledge base created successfully`);
+      return kb;
+    } catch (error: any) {
+      console.error(`[KB Service] ❌ Failed to create knowledge base:`, error);
+      throw new AppError(
+        error.statusCode || 500,
+        error.code || 'KB_CREATE_ERROR',
+        error.message || 'Failed to create knowledge base'
+      );
+    }
   }
 
   // Get space usage
@@ -121,6 +147,24 @@ export class KnowledgeBaseService {
       question,
       answer
     });
+
+    // Ingest FAQ into Python RAG system
+    try {
+      const kb = await KnowledgeBase.findById(kbId);
+      if (kb) {
+        // Create a temporary text content for FAQ
+        const faqContent = `Q: ${question}\nA: ${answer}`;
+        console.log(`[KB Service] Ingesting FAQ into Python RAG for KB: ${kb.name}`);
+        
+        // Note: Python RAG doesn't have direct FAQ ingestion, so we'll add it as URL content
+        // Alternatively, you can create a text file and upload it
+        // For now, we'll log this and you may need to implement text content ingestion in Python
+        console.log('[KB Service] FAQ created, manual ingestion may be required');
+      }
+    } catch (error: any) {
+      console.error('[KB Service] Failed to ingest FAQ into RAG:', error);
+      // Don't throw error - allow FAQ to be saved even if RAG ingestion fails
+    }
 
     return faq;
   }
@@ -288,6 +332,15 @@ export class KnowledgeBaseService {
       });
     }
 
+    // Ingest URLs into Python RAG system
+    try {
+      console.log(`[KB Service] Ingesting ${urls.length} URLs into Python RAG`);
+      await this.ingestIntoRAG(kbId, { urlLinks: urls });
+    } catch (error: any) {
+      console.error('[KB Service] Failed to ingest URLs into RAG:', error);
+      // Don't throw error - allow the URLs to be saved even if RAG ingestion fails
+    }
+
     return {
       added: urls.length,
       failed: 0,
@@ -365,6 +418,51 @@ export class KnowledgeBaseService {
     }
 
     return { file, message: 'File deleted successfully' };
+  }
+
+  // ===== RAG Integration Methods =====
+
+  /**
+   * Ingest knowledge base data into Python RAG system
+   * @param kbId Knowledge base ID
+   * @param options Ingestion options (URLs, files)
+   */
+  async ingestIntoRAG(kbId: string, options: {
+    urlLinks?: string[];
+    pdfFiles?: Buffer[];
+    excelFiles?: Buffer[];
+  }) {
+    try {
+      const kb = await KnowledgeBase.findById(kbId);
+      if (!kb) {
+        throw new AppError(404, 'NOT_FOUND', 'Knowledge base not found');
+      }
+
+      console.log(`[KB Service] Ingesting data into Python RAG for KB: ${kb.name}`);
+
+      // Use Python RAG service for data ingestion
+      const result = await pythonRagService.ingestData({
+        collectionName: kb.collectionName,
+        ...options
+      });
+
+      console.log(`[KB Service] ✅ Data ingestion completed via Python RAG`);
+      return result;
+    } catch (error: any) {
+      console.error(`[KB Service] ❌ Python RAG ingestion failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get knowledge base by ID with collection name
+   */
+  async getKnowledgeBaseWithCollection(kbId: string) {
+    const kb = await KnowledgeBase.findById(kbId);
+    if (!kb) {
+      throw new AppError(404, 'NOT_FOUND', 'Knowledge base not found');
+    }
+    return kb;
   }
 }
 
