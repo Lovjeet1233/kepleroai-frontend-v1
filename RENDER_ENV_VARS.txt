@@ -1,0 +1,12 @@
+NODE_ENV=production
+CORS_ORIGIN=https://kepleroai-frontend-v1.vercel.app
+SOCKET_IO_CORS_ORIGIN=https://kepleroai-frontend-v1.vercel.app
+FRONTEND_URL=https://kepleroai-frontend-v1.vercel.app
+GOOGLE_CALLBACK_URL=https://kepleroai-backend-v1.onrender.com/api/v1/auth/google/callback
+GOOGLE_REDIRECT_URI=https://kepleroai-backend-v1.onrender.com/api/v1/integrations/google/callback
+GOOGLE_CLIENT_ID=248167343505-s35tohfpegqmba4i34m692dg6efesdsv.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+DIALOG360_WEBHOOK_TOKEN=kepleroai_webhook_token_2024
+RAG_API_URL=http://localhost:8000
+COMM_API_URL=http://localhost:8000
+
