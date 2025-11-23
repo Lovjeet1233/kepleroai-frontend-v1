@@ -42,7 +42,7 @@ class KnowledgeBaseService {
   async getAll() {
     try {
       const response = await apiClient.get('/training/knowledge-bases');
-      return response.data.knowledgeBases;
+      return response.data.data || response.data.knowledgeBases || response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch knowledge bases');
     }
@@ -54,7 +54,7 @@ class KnowledgeBaseService {
   async getById(id: string) {
     try {
       const response = await apiClient.get(`/training/knowledge-bases/${id}`);
-      return response.data.knowledgeBase;
+      return response.data.data || response.data.knowledgeBase || response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch knowledge base');
     }
@@ -66,7 +66,7 @@ class KnowledgeBaseService {
   async create(data: CreateKnowledgeBaseData) {
     try {
       const response = await apiClient.post('/training/knowledge-bases', data);
-      return response.data.knowledgeBase;
+      return response.data.data || response.data.knowledgeBase || response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to create knowledge base');
     }
@@ -78,7 +78,7 @@ class KnowledgeBaseService {
   async update(id: string, data: Partial<CreateKnowledgeBaseData>) {
     try {
       const response = await apiClient.patch(`/training/knowledge-bases/${id}`, data);
-      return response.data.knowledgeBase;
+      return response.data.data || response.data.knowledgeBase || response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to update knowledge base');
     }

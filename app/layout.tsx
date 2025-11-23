@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/providers/AppProviders";
+import { AutoTranslate } from "@/components/AutoTranslate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,11 @@ export default function RootLayout({
                 try {
                   const theme = localStorage.getItem('theme') || 'dark';
                   document.documentElement.classList.add(theme);
+                  
+                  const language = localStorage.getItem('language') || 'en';
+                  document.documentElement.lang = language;
+                  // Keep LTR for consistent UI layout
+                  document.documentElement.dir = 'ltr';
                 } catch (e) {}
               })();
             `,
@@ -43,6 +49,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AppProviders>
+          <AutoTranslate />
           {children}
         </AppProviders>
       </body>

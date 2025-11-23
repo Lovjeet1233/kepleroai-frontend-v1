@@ -8,17 +8,34 @@ import { ConversationDetail } from "@/components/conversations/ConversationDetai
 import { useConversations, useConversation } from "@/hooks/useConversations";
 import { ConversationListSkeleton } from "@/components/LoadingSkeleton";
 import { NoConversations } from "@/components/EmptyState";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 export default function ConversationsPage() {
+  const { getSidebarWidth } = useSidebar();
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
   const [filter, setFilter] = useState("all");
 
+  // Parse filter to determine if it's a channel filter
+  const getFilterParams = () => {
+    if (filter.startsWith('channel:')) {
+      const channel = filter.replace('channel:', '');
+      // Map channel names to backend format
+      const channelMap: Record<string, string> = {
+        'website': 'website',
+        'whatsapp': 'whatsapp',
+        'instagram': 'social',
+        'facebook': 'social',
+        'phone': 'phone',
+      };
+      return { channel: channelMap[channel] || channel };
+    }
+    return { status: filter === "all" ? undefined : filter };
+  };
+
   // Fetch conversations from API
-  const { data: conversationsData, isLoading, isError, error } = useConversations({
-    status: filter === "all" ? undefined : filter,
-  });
+  const { data: conversationsData, isLoading, isError, error } = useConversations(getFilterParams());
 
   // Fetch selected conversation details
   const { data: selectedConversationData } = useConversation(selectedConversationId);
@@ -35,7 +52,7 @@ export default function ConversationsPage() {
     return (
       <>
         <Header title="Conversations" />
-        <div className="fixed inset-0 flex" style={{ left: "240px", top: "80px" }}>
+        <div className="fixed inset-0 flex transition-all duration-300" style={{ left: `${getSidebarWidth()}px`, top: "80px" }}>
           <ConversationFilters onFilterChange={setFilter} />
           <div className="flex-1 p-4">
             <ConversationListSkeleton count={5} />
@@ -50,7 +67,7 @@ export default function ConversationsPage() {
     return (
       <>
         <Header title="Conversations" />
-        <div className="fixed inset-0 flex items-center justify-center" style={{ left: "240px", top: "80px" }}>
+        <div className="fixed inset-0 flex items-center justify-center transition-all duration-300" style={{ left: `${getSidebarWidth()}px`, top: "80px" }}>
           <div className="text-center">
             <h2 className="text-xl font-bold text-destructive mb-2">Error Loading Conversations</h2>
             <p className="text-muted-foreground">{error?.message || 'Failed to load conversations'}</p>
@@ -69,7 +86,7 @@ export default function ConversationsPage() {
   return (
     <>
       <Header title="Conversations" />
-      <div className="fixed inset-0 flex" style={{ left: "240px", top: "80px" }}>
+      <div className="fixed inset-0 flex transition-all duration-300" style={{ left: `${getSidebarWidth()}px`, top: "80px" }}>
         {/* Column 1 - Filters */}
         <ConversationFilters onFilterChange={setFilter} />
 

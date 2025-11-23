@@ -19,6 +19,8 @@ export interface ChatRequest {
   top_k?: number;
   thread_id?: string;
   system_prompt?: string;
+  provider?: string;
+  api_key?: string;
 }
 
 export interface ChatResponse {
@@ -113,6 +115,21 @@ export class PythonRagService {
    */
   async chat(params: ChatRequest): Promise<ChatResponse> {
     try {
+      // Fetch API keys if not provided
+      let provider = params.provider;
+      let apiKey = params.api_key;
+
+      if (!provider || !apiKey) {
+        try {
+          const { apiKeysService } = await import('./apiKeys.service');
+          const apiKeys = await apiKeysService.getApiKeys();
+          provider = apiKeys.llmProvider;
+          apiKey = apiKeys.apiKey;
+        } catch (error) {
+          console.warn('Failed to fetch API keys, using provided values or defaults');
+        }
+      }
+
       const response = await axios.post<ChatResponse>(
         `${PYTHON_RAG_URL}/rag/chat`,
         {
@@ -120,7 +137,9 @@ export class PythonRagService {
           collection_name: params.collection_name,
           top_k: params.top_k || 5,
           thread_id: params.thread_id,
-          system_prompt: params.system_prompt
+          system_prompt: params.system_prompt,
+          provider: provider,
+          api_key: apiKey
         },
         {
           headers: { 'Content-Type': 'application/json' }

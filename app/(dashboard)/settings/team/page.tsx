@@ -1,26 +1,132 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { mockOperators, Operator, availablePermissions } from "@/data/mockOperators";
 import { cn } from "@/lib/utils";
+import { useOperators, useCreateOperator, useDeleteOperator, useUpdateOperator } from "@/hooks/useSettings";
+import { toast } from "sonner";
 
 export default function TeamSettingsPage() {
-  const [operators, setOperators] = useState<Operator[]>(mockOperators);
-  const [showModal, setShowModal] = useState(false);
+  const { data: operators = [], isLoading } = useOperators();
+  const createOperator = useCreateOperator();
+  const deleteOperator = useDeleteOperator();
+  const updateOperator = useUpdateOperator();
 
-  const getRoleBadge = (role: Operator["role"]) => {
-    const styles = {
+  const [showModal, setShowModal] = useState(false);
+  const [editingOperator, setEditingOperator] = useState<any | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    password: "",
+    role: "operator" as "admin" | "operator" | "viewer",
+    permissions: [] as string[],
+  });
+
+  const getRoleBadge = (role: string) => {
+    const styles: any = {
       admin: "bg-purple-500",
       operator: "bg-blue-500",
       viewer: "bg-gray-500",
     };
 
     return (
-      <span className={cn("px-2.5 py-1 rounded-xl text-xs font-medium text-foreground", styles[role])}>
+      <span className={cn("px-2.5 py-1 rounded-xl text-xs font-medium text-foreground", styles[role] || "bg-gray-500")}>
         {role.charAt(0).toUpperCase() + role.slice(1)}
       </span>
     );
+  };
+
+  const handleOpenModal = (operator?: any) => {
+    if (operator) {
+      setEditingOperator(operator);
+      setFormData({
+        email: operator.email || "",
+        firstName: operator.firstName || operator.name?.split(" ")[0] || "",
+        lastName: operator.lastName || operator.name?.split(" ")[1] || "",
+        password: "",
+        role: operator.role || "operator",
+        permissions: operator.permissions || [],
+      });
+    } else {
+      setEditingOperator(null);
+      setFormData({
+        email: "",
+        firstName: "",
+        lastName: "",
+        password: "",
+        role: "operator",
+        permissions: [],
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingOperator(null);
+    setFormData({
+      email: "",
+      firstName: "",
+      lastName: "",
+      password: "",
+      role: "operator",
+      permissions: [],
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.email || !formData.firstName) {
+      toast.error("Email and first name are required");
+      return;
+    }
+
+    if (!editingOperator && !formData.password) {
+      toast.error("Password is required for new operators");
+      return;
+    }
+
+    try {
+      if (editingOperator) {
+        // Update existing operator
+        await updateOperator.mutateAsync({
+          id: editingOperator._id || editingOperator.id,
+          data: {
+            name: `${formData.firstName} ${formData.lastName}`.trim(),
+            email: formData.email,
+            role: formData.role,
+            ...(formData.password && { password: formData.password }),
+          },
+        });
+      } else {
+        // Create new operator
+        await createOperator.mutateAsync({
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        });
+      }
+      handleCloseModal();
+    } catch (error) {
+      // Error already handled by mutation
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to delete this operator?")) {
+      try {
+        await deleteOperator.mutateAsync(id);
+      } catch (error) {
+        // Error already handled by mutation
+      }
+    }
   };
 
   return (
@@ -29,7 +135,7 @@ export default function TeamSettingsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Team</h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => handleOpenModal()}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -63,76 +169,114 @@ export default function TeamSettingsPage() {
             </tr>
           </thead>
           <tbody>
-            {operators.map((operator) => (
-              <tr
-                key={operator.id}
-                className="border-b border-border hover:bg-secondary transition-colors"
-              >
-                <td className="px-6 py-4">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-foreground font-semibold text-sm"
-                    style={{ backgroundColor: operator.color }}
-                  >
-                    {operator.avatar}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm font-medium text-foreground">
-                    {operator.firstName} {operator.lastName}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-muted-foreground">{operator.email}</span>
-                </td>
-                <td className="px-6 py-4">{getRoleBadge(operator.role)}</td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-muted-foreground">
-                    {operator.permissions.length} sections
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                  Loading operators...
                 </td>
               </tr>
-            ))}
+            ) : operators.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                  No operators yet. Add one to get started.
+                </td>
+              </tr>
+            ) : (
+              operators.map((operator: any) => {
+                const avatar = operator.avatar || operator.firstName?.[0]?.toUpperCase() || operator.name?.[0]?.toUpperCase() || "?";
+                const color = operator.color || "#6366f1";
+                const displayName = operator.firstName && operator.lastName 
+                  ? `${operator.firstName} ${operator.lastName}` 
+                  : operator.name || "Unknown";
+
+                return (
+                  <tr
+                    key={operator._id || operator.id}
+                    className="border-b border-border hover:bg-secondary transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-foreground font-semibold text-sm"
+                        style={{ backgroundColor: color }}
+                      >
+                        {avatar}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-foreground">
+                        {displayName}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-muted-foreground">{operator.email}</span>
+                    </td>
+                    <td className="px-6 py-4">{getRoleBadge(operator.role)}</td>
+                    <td className="px-6 py-4">
+                      <span className="text-[13px] text-muted-foreground">
+                        {operator.permissions?.length || 0} sections
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => handleOpenModal(operator)}
+                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(operator._id || operator.id)}
+                          className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Add Operator Modal */}
+      {/* Add/Edit Operator Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-[560px] bg-card border border-border rounded-2xl p-6">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Add Operator</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-6">
+              {editingOperator ? "Edit Operator" : "Add Operator"}
+            </h2>
 
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Email *</label>
                 <input
                   type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="email@example.com"
+                  required
                   className="w-full bg-secondary border border-border rounded-lg px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">First Name</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">First Name *</label>
                   <input
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     placeholder="John"
+                    required
                     className="w-full bg-secondary border border-border rounded-lg px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Last Name</label>
                   <input
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     placeholder="Doe"
                     className="w-full bg-secondary border border-border rounded-lg px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                   />
@@ -140,36 +284,62 @@ export default function TeamSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-3">Permissions</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {availablePermissions.map((permission) => (
-                    <label
-                      key={permission.id}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0"
-                      />
-                      <span className="text-sm text-foreground">{permission.label}</span>
-                    </label>
-                  ))}
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Password {!editingOperator && "*"}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder={editingOperator ? "Leave blank to keep current" : "Enter password"}
+                    required={!editingOperator}
+                    className="w-full bg-secondary border border-border rounded-lg px-3 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Note: Password will be stored in plain text as requested
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-3 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="operator">Operator</option>
+                  <option value="admin">Admin</option>
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   className="flex-1 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all"
+                  disabled={createOperator.isPending || updateOperator.isPending}
+                  className="flex-1 px-6 py-3 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Operator
+                  {createOperator.isPending || updateOperator.isPending
+                    ? "Saving..."
+                    : editingOperator
+                    ? "Update Operator"
+                    : "Add Operator"}
                 </button>
               </div>
             </form>

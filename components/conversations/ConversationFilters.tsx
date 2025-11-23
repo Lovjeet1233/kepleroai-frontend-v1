@@ -9,6 +9,10 @@ import {
   ChevronRight,
   Folder,
   Plus,
+  MessageSquare,
+  Phone,
+  Instagram,
+  Facebook,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +26,7 @@ export function ConversationFilters({
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [colleaguesExpanded, setColleaguesExpanded] = useState(false);
   const [foldersExpanded, setFoldersExpanded] = useState(true);
+  const [channelsExpanded, setChannelsExpanded] = useState(true);
 
   const handleFilterSelect = (filter: string) => {
     setSelectedFilter(filter);
@@ -75,6 +80,85 @@ export function ConversationFilters({
           <UserCircle2 className="w-4 h-4" />
           <span>Assigned to me</span>
         </button>
+      </div>
+
+      {/* Channels Section */}
+      <div className="px-3 mb-4">
+        <button
+          onClick={() => setChannelsExpanded(!channelsExpanded)}
+          className="w-full flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+        >
+          {channelsExpanded ? (
+            <ChevronDown className="w-4 h-4" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+          <span>Channels</span>
+        </button>
+        {channelsExpanded && (
+          <div className="space-y-1">
+            <button
+              onClick={() => handleFilterSelect("channel:website")}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left flex items-center gap-2",
+                selectedFilter === "channel:website"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-secondary-foreground hover:bg-accent"
+              )}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Chatbot/Website</span>
+            </button>
+            <button
+              onClick={() => handleFilterSelect("channel:whatsapp")}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left flex items-center gap-2",
+                selectedFilter === "channel:whatsapp"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-secondary-foreground hover:bg-accent"
+              )}
+            >
+              <MessageSquare className="w-4 h-4 text-green-600" />
+              <span>WhatsApp</span>
+            </button>
+            <button
+              onClick={() => handleFilterSelect("channel:instagram")}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left flex items-center gap-2",
+                selectedFilter === "channel:instagram"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-secondary-foreground hover:bg-accent"
+              )}
+            >
+              <Instagram className="w-4 h-4 text-pink-600" />
+              <span>Instagram</span>
+            </button>
+            <button
+              onClick={() => handleFilterSelect("channel:facebook")}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left flex items-center gap-2",
+                selectedFilter === "channel:facebook"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-secondary-foreground hover:bg-accent"
+              )}
+            >
+              <Facebook className="w-4 h-4 text-blue-600" />
+              <span>Facebook</span>
+            </button>
+            <button
+              onClick={() => handleFilterSelect("channel:phone")}
+              className={cn(
+                "w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-left flex items-center gap-2",
+                selectedFilter === "channel:phone"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-secondary-foreground hover:bg-accent"
+              )}
+            >
+              <Phone className="w-4 h-4" />
+              <span>Phone/Call</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Colleagues Section */}

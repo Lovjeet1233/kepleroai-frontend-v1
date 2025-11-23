@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { integrationService, Tool } from '@/services/integration.service';
+import { toolService, Tool } from '@/services/tool.service';
 
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<Tool[]>([]);
@@ -11,7 +11,7 @@ export function useIntegrations() {
     try {
       setIsLoading(true);
       setError(null);
-      const tools = await integrationService.getAll();
+      const tools = await toolService.getAll();
       setIntegrations(tools);
     } catch (err: any) {
       console.error('Error fetching integrations:', err);
@@ -30,7 +30,7 @@ export function useIntegrations() {
   }) => {
     try {
       setError(null);
-      const response = await integrationService.register(data);
+      const response = await toolService.register(data);
       await fetchIntegrations();
       return response;
     } catch (err: any) {
@@ -48,7 +48,7 @@ export function useIntegrations() {
   }) => {
     try {
       setError(null);
-      const response = await integrationService.update(toolId, data);
+      const response = await toolService.update(toolId, data);
       await fetchIntegrations();
       return response;
     } catch (err: any) {
@@ -61,7 +61,7 @@ export function useIntegrations() {
   const deleteIntegration = useCallback(async (toolId: string) => {
     try {
       setError(null);
-      await integrationService.delete(toolId);
+      await toolService.delete(toolId);
       await fetchIntegrations();
     } catch (err: any) {
       setError(err.message || 'Failed to delete integration');

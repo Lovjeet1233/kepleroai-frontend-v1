@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -50,6 +50,14 @@ export function ContactModal({
     resolver: zodResolver(contactSchema),
     defaultValues: initialData || { name: "", email: "", phone: "", tags: [] },
   });
+
+  // Reset form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (isOpen) {
+      reset(initialData || { name: "", email: "", phone: "", tags: [] });
+      setSelectedLists(preSelectedListId ? [preSelectedListId] : (initialData?.listIds || []));
+    }
+  }, [isOpen, initialData, preSelectedListId, reset]);
 
   const toggleList = (listId: string) => {
     setSelectedLists((prev) =>

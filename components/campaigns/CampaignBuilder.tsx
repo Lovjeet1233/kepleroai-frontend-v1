@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContactLists } from "@/hooks/useContacts";
+import { AlertModal } from "@/components/ui/Modal";
 
 interface CampaignBuilderProps {
   onClose: () => void;
@@ -33,8 +34,37 @@ export function CampaignBuilder({ onClose, onSave }: CampaignBuilderProps) {
   const [callLanguage, setCallLanguage] = useState("en");
   const [callEmotion, setCallEmotion] = useState("Calm");
 
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "error" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "error",
+  });
+
   // Fetch lists from backend
   const { data: lists, isLoading: loadingLists } = useContactLists();
+
+  const showAlert = (title: string, message: string, type: "error" | "warning" | "info" = "error") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertModal({
+      ...alertModal,
+      isOpen: false,
+    });
+  };
 
   const steps = [
     { number: 1, label: "Details" },
@@ -46,11 +76,11 @@ export function CampaignBuilder({ onClose, onSave }: CampaignBuilderProps) {
     // Validate step 1
     if (step === 1) {
       if (!campaignName.trim()) {
-        alert("Please enter a campaign name");
+        showAlert("Campaign Name Required", "Please enter a campaign name to continue.", "warning");
         return;
       }
       if (!contactList) {
-        alert("Please select a contact list");
+        showAlert("Contact List Required", "Please select a contact list to send this campaign to.", "warning");
         return;
       }
     }
@@ -58,22 +88,22 @@ export function CampaignBuilder({ onClose, onSave }: CampaignBuilderProps) {
     // Validate step 2
     if (step === 2) {
       if (!enableCall && !enableSMS && !enableEmail) {
-        alert("Please select at least one communication type");
+        showAlert("Communication Channel Required", "Please select at least one communication type (Call, SMS, or Email).", "warning");
         return;
       }
 
       if (enableSMS && !smsMessage.trim()) {
-        alert("Please enter an SMS message");
+        showAlert("SMS Message Required", "Please enter an SMS message to send to your contacts.", "warning");
         return;
       }
 
       if (enableEmail && (!emailSubject.trim() || !emailBody.trim())) {
-        alert("Please enter email subject and body");
+        showAlert("Email Details Required", "Please enter both email subject and body to send emails.", "warning");
         return;
       }
 
       if (enableCall && !callPrompt.trim()) {
-        alert("Please enter AI call instructions");
+        showAlert("AI Instructions Required", "Please enter instructions for the AI agent to follow during calls.", "warning");
         return;
       }
     }
@@ -93,17 +123,17 @@ export function CampaignBuilder({ onClose, onSave }: CampaignBuilderProps) {
 
     // Final validation
     if (!campaignName.trim()) {
-      alert("Please enter a campaign name");
+      showAlert("Campaign Name Required", "Please enter a campaign name before starting.", "error");
       return;
     }
 
     if (!contactList) {
-      alert("Please select a contact list");
+      showAlert("Contact List Required", "Please select a contact list before starting.", "error");
       return;
     }
 
     if (communicationTypes.length === 0) {
-      alert("Please select at least one communication type");
+      showAlert("Communication Channel Required", "Please select at least one communication type before starting.", "error");
       return;
     }
 
@@ -125,7 +155,15 @@ export function CampaignBuilder({ onClose, onSave }: CampaignBuilderProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <>
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={closeAlert}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+      <div className="max-w-4xl mx-auto p-6">
       {/* Step indicator */}
       <div className="flex items-center justify-center mb-8">
         {steps.map((s, index) => (
@@ -446,6 +484,7 @@ export function CampaignBuilder({ onClose, onSave }: CampaignBuilderProps) {
         )}
       </div>
     </div>
+    </>
   );
 }
 

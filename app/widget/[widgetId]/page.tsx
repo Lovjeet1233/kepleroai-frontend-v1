@@ -13,6 +13,13 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface WidgetSettings {
+  chatbotName: string;
+  chatbotAvatar: string | null;
+  primaryColor: string;
+  welcomeMessage: string;
+}
+
 export default function WidgetPage({ params }: { params: { widgetId: string } }) {
   const searchParams = useSearchParams();
   const [threadId] = useState(uuidv4());
@@ -25,6 +32,36 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
   const [userName, setUserName] = useState<string | null>(null);
   const [isAskingName, setIsAskingName] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>({
+    chatbotName: 'AI Assistant',
+    chatbotAvatar: null,
+    primaryColor: '#6366f1',
+    welcomeMessage: '👋 Hello! Before we start, may I know your name?'
+  });
+
+  // Fetch widget settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+        const response = await fetch(`${API_URL}/settings/widget/${params.widgetId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setWidgetSettings({
+              chatbotName: data.data.chatbotName || 'AI Assistant',
+              chatbotAvatar: data.data.chatbotAvatar || null,
+              primaryColor: data.data.primaryColor || '#6366f1',
+              welcomeMessage: data.data.welcomeMessage || '👋 Hello! Before we start, may I know your name?'
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch widget settings:', error);
+      }
+    };
+    fetchSettings();
+  }, [params.widgetId]);
 
   // Get collection from URL parameter or use default
   useEffect(() => {
@@ -54,12 +91,12 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
         {
           id: "welcome",
           sender: "bot",
-          content: "👋 Hello! Before we start, may I know your name?",
+          content: widgetSettings.welcomeMessage,
           timestamp: new Date().toISOString(),
         },
       ]);
     }
-  }, [messages.length, isAskingName]);
+  }, [messages.length, isAskingName, widgetSettings.welcomeMessage]);
 
   // Save conversation to database
   const saveConversation = async (userName: string, message: string, response: string) => {
@@ -104,20 +141,25 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMessage]);
-      setUserName(input);
+      const userName = input;
+      setUserName(userName);
       setIsAskingName(false);
       setInput("");
 
       // Send greeting with name
+      const greetingText = `Nice to meet you, ${userName}! How can I help you today?`;
       setTimeout(() => {
         const greeting = {
           id: (Date.now() + 1).toString(),
           sender: "bot" as const,
-          content: `Nice to meet you, ${input}! How can I help you today?`,
+          content: greetingText,
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, greeting]);
       }, 500);
+
+      // Save initial conversation with name to database
+      await saveConversation(userName, userName, greetingText);
       return;
     }
 
@@ -191,9 +233,14 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
       <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110"
+          style={{ backgroundColor: widgetSettings.primaryColor }}
+          className="w-16 h-16 hover:brightness-110 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110"
         >
-          <MessageCircle className="w-8 h-8 text-white" />
+          {widgetSettings.chatbotAvatar ? (
+            <img src={widgetSettings.chatbotAvatar} alt="Chat" className="w-12 h-12 rounded-full" />
+          ) : (
+            <MessageCircle className="w-8 h-8 text-white" />
+          )}
         </button>
       </div>
     );
@@ -204,10 +251,15 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
       <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 rounded-full shadow-2xl transition-all hover:scale-105"
+          style={{ backgroundColor: widgetSettings.primaryColor }}
+          className="flex items-center gap-3 px-5 py-4 hover:brightness-110 rounded-full shadow-2xl transition-all hover:scale-105"
         >
-          <MessageCircle className="w-6 h-6 text-white" />
-          <span className="text-white font-semibold">Chat with us</span>
+          {widgetSettings.chatbotAvatar ? (
+            <img src={widgetSettings.chatbotAvatar} alt="Chat" className="w-8 h-8 rounded-full" />
+          ) : (
+            <MessageCircle className="w-6 h-6 text-white" />
+          )}
+          <span className="text-white font-semibold">{widgetSettings.chatbotName}</span>
           {messages.filter(m => m.sender === "bot").length > 1 && (
             <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
           )}
@@ -220,13 +272,17 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm z-50">
       <div className="w-full max-w-md h-[600px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 flex items-center justify-between">
+        <div style={{ backgroundColor: widgetSettings.primaryColor }} className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center overflow-hidden">
+              {widgetSettings.chatbotAvatar ? (
+                <img src={widgetSettings.chatbotAvatar} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                <MessageCircle className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
-              <h3 className="text-white font-semibold">AI Assistant</h3>
+              <h3 className="text-white font-semibold">{widgetSettings.chatbotName}</h3>
               <p className="text-white/80 text-xs">Online • Ready to help</p>
             </div>
           </div>
@@ -253,12 +309,13 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
               key={message.id}
               className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div
+                <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.sender === "user"
-                    ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white"
+                    ? "text-white shadow-md"
                     : "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
                 }`}
+                style={message.sender === "user" ? { backgroundColor: widgetSettings.primaryColor } : {}}
               >
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                 <p
@@ -302,7 +359,8 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
             <button
               onClick={handleSend}
               disabled={!input.trim() || isSending}
-              className="w-11 h-11 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center transition-all disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
+              style={{ backgroundColor: !input.trim() || isSending ? '#9ca3af' : widgetSettings.primaryColor }}
+              className="w-11 h-11 hover:brightness-110 text-white rounded-xl flex items-center justify-center transition-all disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
             >
               {isSending ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -316,7 +374,7 @@ export default function WidgetPage({ params }: { params: { widgetId: string } })
         {/* Powered by */}
         <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Powered by <span className="font-semibold text-indigo-600 dark:text-indigo-400">KepleroAI</span>
+            Powered by <span className="font-semibold" style={{ color: widgetSettings.primaryColor }}>KepleroAI</span>
           </p>
         </div>
       </div>

@@ -1,15 +1,39 @@
 import { apiClient } from '@/lib/api';
 
 export interface UpdateSettingsData {
+  // Chatbot Settings
   chatbotName?: string;
   chatbotAvatar?: string;
   primaryColor?: string;
   widgetPosition?: 'left' | 'right';
   autoReplyEnabled?: boolean;
   autoReplyMessage?: string;
+  defaultKnowledgeBaseId?: string;
+  defaultKnowledgeBaseName?: string;
   businessHours?: any;
+  // Conversation Settings
+  autoAssign?: boolean;
+  roundRobinAssignment?: boolean;
+  maxResponseTime?: number;
+  autoCloseAfterDays?: number;
+  // Contact Settings
+  allowDuplicateContacts?: boolean;
+  autoMergeContacts?: boolean;
+  requireEmail?: boolean;
+  requirePhone?: boolean;
+  enableCustomFields?: boolean;
+  // Analytics Settings
+  enableAnalytics?: boolean;
+  trackCustomerBehavior?: boolean;
+  dataRetentionDays?: number;
+  reportFrequency?: string;
+  // Language & Privacy
   language?: string;
   timezone?: string;
+  dataCollection?: boolean;
+  shareAnalytics?: boolean;
+  twoFactorEnabled?: boolean;
+  // General
   webhookUrl?: string;
   emailNotifications?: boolean;
   soundNotifications?: boolean;
@@ -66,7 +90,7 @@ class SettingsService {
    */
   async getOperators() {
     try {
-      const response = await apiClient.get('/operators');
+      const response = await apiClient.get('/settings/operators');
       return response.data.operators;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch operators');
@@ -78,7 +102,7 @@ class SettingsService {
    */
   async getOperatorById(id: string) {
     try {
-      const response = await apiClient.get(`/operators/${id}`);
+      const response = await apiClient.get(`/settings/operators/${id}`);
       return response.data.operator;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch operator');
@@ -90,7 +114,7 @@ class SettingsService {
    */
   async createOperator(data: CreateOperatorData) {
     try {
-      const response = await apiClient.post('/operators', data);
+      const response = await apiClient.post('/settings/operators', data);
       return response.data.operator;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to create operator');
@@ -102,7 +126,7 @@ class SettingsService {
    */
   async updateOperator(id: string, data: Partial<CreateOperatorData>) {
     try {
-      const response = await apiClient.patch(`/operators/${id}`, data);
+      const response = await apiClient.patch(`/settings/operators/${id}`, data);
       return response.data.operator;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to update operator');
@@ -114,7 +138,7 @@ class SettingsService {
    */
   async deleteOperator(id: string) {
     try {
-      const response = await apiClient.delete(`/operators/${id}`);
+      const response = await apiClient.delete(`/settings/operators/${id}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to delete operator');
@@ -315,7 +339,7 @@ class SettingsService {
    */
   async getLabels() {
     try {
-      const response = await apiClient.get('/labels');
+      const response = await apiClient.get('/conversations/labels');
       return response.data.labels;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch labels');
@@ -327,7 +351,7 @@ class SettingsService {
    */
   async createLabel(name: string, color: string, description?: string) {
     try {
-      const response = await apiClient.post('/labels', {
+      const response = await apiClient.post('/conversations/labels', {
         name,
         color,
         description,
@@ -343,7 +367,7 @@ class SettingsService {
    */
   async updateLabel(id: string, name?: string, color?: string, description?: string) {
     try {
-      const response = await apiClient.patch(`/labels/${id}`, {
+      const response = await apiClient.patch(`/conversations/labels/${id}`, {
         name,
         color,
         description,
@@ -359,7 +383,7 @@ class SettingsService {
    */
   async deleteLabel(id: string) {
     try {
-      const response = await apiClient.delete(`/labels/${id}`);
+      const response = await apiClient.delete(`/conversations/labels/${id}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to delete label');
@@ -373,7 +397,7 @@ class SettingsService {
    */
   async getFolders() {
     try {
-      const response = await apiClient.get('/folders');
+      const response = await apiClient.get('/conversations/folders');
       return response.data.folders;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to fetch folders');
@@ -385,7 +409,7 @@ class SettingsService {
    */
   async createFolder(name: string, description?: string) {
     try {
-      const response = await apiClient.post('/folders', {
+      const response = await apiClient.post('/conversations/folders', {
         name,
         description,
       });
@@ -400,7 +424,7 @@ class SettingsService {
    */
   async updateFolder(id: string, name?: string, description?: string) {
     try {
-      const response = await apiClient.patch(`/folders/${id}`, {
+      const response = await apiClient.patch(`/conversations/folders/${id}`, {
         name,
         description,
       });
@@ -415,7 +439,7 @@ class SettingsService {
    */
   async deleteFolder(id: string) {
     try {
-      const response = await apiClient.delete(`/folders/${id}`);
+      const response = await apiClient.delete(`/conversations/folders/${id}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to delete folder');

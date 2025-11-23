@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Bookmark, Folder, Tag, MoreVertical, X, Phone } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Bookmark, Folder, Tag, MoreVertical, X, Phone, UserPlus, MessageSquare } from "lucide-react";
 import { Conversation } from "@/data/mockConversations";
 import { MessageThread } from "./MessageThread";
 import { ManualControlPanel } from "./ManualControlPanel";
+import { SendMessageModal } from "./SendMessageModal";
+import { FolderSelectModal } from "./FolderSelectModal";
+import { useUpdateConversationStatus, useAssignOperator, useMoveToFolder } from "@/hooks/useConversations";
+import { toast } from "sonner";
+import { useSocket } from "@/hooks/useSocket";
 
 interface ConversationDetailProps {
   conversation: Conversation;
@@ -16,6 +21,53 @@ export function ConversationDetail({
   onClose,
 }: ConversationDetailProps) {
   const [isManualControl, setIsManualControl] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [showAssignMenu, setShowAssignMenu] = useState(false);
+  const [showChannelsMenu, setShowChannelsMenu] = useState(false);
+  const [sendMessageModalOpen, setSendMessageModalOpen] = useState(false);
+  const [folderSelectModalOpen, setFolderSelectModalOpen] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<'sms' | 'whatsapp' | null>(null);
+  const [realtimeMessages, setRealtimeMessages] = useState<any[]>([]);
+  
+  const updateStatus = useUpdateConversationStatus();
+  const assignOperator = useAssignOperator();
+  const moveToFolder = useMoveToFolder();
+  const { socket, isConnected } = useSocket();
+
+  // Listen for real-time messages
+  useEffect(() => {
+    if (!socket || !conversation.id) return;
+
+    console.log(`[Real-time] Joining conversation room: ${conversation.id}`);
+    
+    // Join this conversation's room
+    socket.joinConversation(conversation.id);
+
+    // Listen for new messages
+    const handleNewMessage = (data: any) => {
+      console.log('[Real-time] New message received:', data);
+      setRealtimeMessages(prev => [...prev, data]);
+      
+      // Show notification
+      if (data.sender === 'ai') {
+        toast.success('AI replied to the conversation');
+      } else if (data.sender === 'customer') {
+        toast.info('New customer message received');
+      }
+    };
+
+    socket.onMessageReceived(handleNewMessage);
+
+    return () => {
+      socket.off('message-received', handleNewMessage);
+    };
+  }, [socket, conversation.id]);
+
+  // Merge real-time messages with conversation messages
+  const allMessages = useMemo(() => {
+    const existing = conversation.messages || [];
+    return [...existing, ...realtimeMessages];
+  }, [conversation.messages, realtimeMessages]);
 
   const handleTakeControl = () => {
     setIsManualControl(true);
@@ -25,9 +77,92 @@ export function ConversationDetail({
     setIsManualControl(false);
   };
 
-  const handleSendMessage = (message: string, isInternal: boolean) => {
-    // TODO: Implement send message logic
-    console.log("Send message:", message, "Internal:", isInternal);
+  const handleSendMessage = async (message: string, isInternal: boolean) => {
+    try {
+      console.log("Send message:", message, "Internal:", isInternal);
+      
+      const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+      
+      const response = await fetch(
+        `${API_URL}/conversations/${conversation.id}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            text: message,
+            sender: 'operator',
+            type: isInternal ? 'internal_note' : 'message'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+      console.log('Message sent successfully:', data);
+      toast.success('Message sent!');
+      
+      // Add message to real-time list instead of full reload
+      setRealtimeMessages(prev => [...prev, {
+        text: message,
+        sender: 'operator',
+        timestamp: new Date()
+      }]);
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error(error.message || 'Failed to send message');
+    }
+  };
+
+  const handleBookmark = () => {
+    setIsBookmarked(!isBookmarked);
+    toast.success(isBookmarked ? "Bookmark removed" : "Conversation bookmarked");
+  };
+
+  const handleAddToFolder = () => {
+    setFolderSelectModalOpen(true);
+  };
+
+  const handleFolderSelect = (folderId: string | null) => {
+    moveToFolder.mutate({
+      conversationId: conversation.id,
+      folderId: folderId,
+    });
+  };
+
+  const handleCloseConversation = () => {
+    if (confirm("Close this conversation?")) {
+      updateStatus.mutate({
+        conversationId: conversation.id,
+        status: "closed",
+      }, {
+        onSuccess: () => {
+          onClose();
+        }
+      });
+    }
+  };
+
+  const handleAssignToSelf = () => {
+    // Get current user ID from localStorage or context
+    const userId = localStorage.getItem("userId") || "self";
+    assignOperator.mutate({
+      conversationId: conversation.id,
+      operatorId: userId,
+    });
+    setShowAssignMenu(false);
+  };
+
+  const handleChannelSelect = (channel: 'sms' | 'whatsapp') => {
+    setSelectedChannel(channel);
+    setSendMessageModalOpen(true);
+    setShowChannelsMenu(false);
   };
 
   // Convert messages to the format expected by MessageThread
@@ -134,34 +269,112 @@ export function ConversationDetail({
 
         {/* Right side - Action icons */}
         <div className="flex items-center gap-3">
+          {/* Channels Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowChannelsMenu(!showChannelsMenu)}
+              className="hover:text-foreground transition-colors text-muted-foreground"
+              title="Send via Channel"
+            >
+              <MessageSquare className="w-[18px] h-[18px]" />
+            </button>
+            {showChannelsMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
+                <button
+                  onClick={() => handleChannelSelect('whatsapp')}
+                  className="w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left flex items-center gap-2"
+                >
+                  <Phone className="w-4 h-4" />
+                  Send via WhatsApp
+                </button>
+                <button
+                  onClick={() => handleChannelSelect('sms')}
+                  className="w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left flex items-center gap-2"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Send via SMS
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={handleBookmark}
+            className={`hover:text-foreground transition-colors ${
+              isBookmarked ? "text-yellow-500" : "text-muted-foreground"
+            }`}
             title="Bookmark"
           >
-            <Bookmark className="w-[18px] h-[18px]" />
+            <Bookmark className={`w-[18px] h-[18px] ${isBookmarked ? "fill-current" : ""}`} />
           </button>
           <button
+            onClick={handleAddToFolder}
             className="text-muted-foreground hover:text-foreground transition-colors"
-            title="Folder"
+            title="Add to folder"
           >
             <Folder className="w-[18px] h-[18px]" />
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowAssignMenu(!showAssignMenu)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="Actions"
+            >
+              <UserPlus className="w-[18px] h-[18px]" />
+            </button>
+            {showAssignMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-10">
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border">
+                  Send Message
+                </div>
+                <button
+                  onClick={() => {
+                    handleChannelSelect('whatsapp');
+                    setShowAssignMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  <Phone className="w-4 h-4" />
+                  Send via WhatsApp
+                </button>
+                <button
+                  onClick={() => {
+                    handleChannelSelect('sms');
+                    setShowAssignMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Send via SMS
+                </button>
+                
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-t border-b border-border mt-1">
+                  Assign To
+                </div>
+                <button
+                  onClick={handleAssignToSelf}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Assign to me
+                </button>
+                <button
+                  onClick={() => {
+                    toast.info("Team member selection coming soon");
+                    setShowAssignMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Assign to colleague
+                </button>
+              </div>
+            )}
+          </div>
           <button
+            onClick={handleCloseConversation}
             className="text-muted-foreground hover:text-foreground transition-colors"
-            title="Tags"
-          >
-            <Tag className="w-[18px] h-[18px]" />
-          </button>
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            title="More"
-          >
-            <MoreVertical className="w-[18px] h-[18px]" />
-          </button>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            title="Close"
+            title="Close conversation"
           >
             <X className="w-[18px] h-[18px]" />
           </button>
@@ -181,6 +394,29 @@ export function ConversationDetail({
         onTakeControl={handleTakeControl}
         onReleaseControl={handleReleaseControl}
         onSendMessage={handleSendMessage}
+      />
+
+      {/* Send Message Modal */}
+      {selectedChannel && (
+        <SendMessageModal
+          isOpen={sendMessageModalOpen}
+          onClose={() => {
+            setSendMessageModalOpen(false);
+            setSelectedChannel(null);
+          }}
+          customerName={conversation.customer.name}
+          customerPhone={conversation.customer.phone}
+          channel={selectedChannel}
+          conversationId={conversation.id}
+        />
+      )}
+
+      {/* Folder Select Modal */}
+      <FolderSelectModal
+        isOpen={folderSelectModalOpen}
+        onClose={() => setFolderSelectModalOpen(false)}
+        onSelect={handleFolderSelect}
+        currentFolderId={conversation.folder}
       />
     </div>
   );

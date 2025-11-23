@@ -1,4 +1,4 @@
-import { ToolProperty } from '@/services/integration.service';
+import { ToolProperty } from '@/services/tool.service';
 
 export interface IntegrationTemplate {
   tool_name: string;

@@ -1,0 +1,212 @@
+// Google Cloud Translation API integration
+const GOOGLE_TRANSLATE_API_KEY = "AIzaSyBgSYoaeuo2iK-cu6TQ4fpRogd8FYyu1-o";
+const TRANSLATE_API_URL = "https://translation.googleapis.com/language/translate/v2";
+
+interface TranslationCache {
+  [key: string]: {
+    [lang: string]: string;
+  };
+}
+
+class GoogleTranslateService {
+  private cache: TranslationCache = {};
+  private cacheKey = "translation-cache-v2";
+  private pendingRequests: Map<string, Promise<string>> = new Map();
+
+  constructor() {
+    // Load cache from localStorage
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(this.cacheKey);
+        if (cached) {
+          this.cache = JSON.parse(cached);
+        }
+      } catch (e) {
+        console.error("Failed to load translation cache:", e);
+      }
+    }
+  }
+
+  async translate(text: string, targetLang: string): Promise<string> {
+    if (!text || !text.trim()) return text;
+    if (targetLang === "en") return text;
+
+    const cacheKey = text.trim();
+
+    // Check cache first
+    if (this.cache[cacheKey]?.[targetLang]) {
+      return this.cache[cacheKey][targetLang];
+    }
+
+    // Check if request is already pending
+    const pendingKey = `${cacheKey}-${targetLang}`;
+    if (this.pendingRequests.has(pendingKey)) {
+      return this.pendingRequests.get(pendingKey)!;
+    }
+
+    // Make new translation request
+    const translationPromise = this.fetchTranslation(text, targetLang);
+    this.pendingRequests.set(pendingKey, translationPromise);
+
+    try {
+      const result = await translationPromise;
+      return result;
+    } finally {
+      this.pendingRequests.delete(pendingKey);
+    }
+  }
+
+  private async fetchTranslation(text: string, targetLang: string): Promise<string> {
+    try {
+      const response = await fetch(
+        `${TRANSLATE_API_URL}?key=${GOOGLE_TRANSLATE_API_KEY}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            q: text,
+            target: targetLang,
+            source: "en",
+            format: "text",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Translation API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const translatedText = data.data?.translations?.[0]?.translatedText || text;
+
+      // Cache the translation
+      const cacheKey = text.trim();
+      if (!this.cache[cacheKey]) {
+        this.cache[cacheKey] = {};
+      }
+      this.cache[cacheKey][targetLang] = translatedText;
+
+      // Save cache to localStorage (with error handling for quota)
+      this.saveCache();
+
+      return translatedText;
+    } catch (error) {
+      console.error("Translation error:", error);
+      return text; // Fallback to original text
+    }
+  }
+
+  async translateBatch(texts: string[], targetLang: string): Promise<string[]> {
+    if (targetLang === "en") return texts;
+
+    try {
+      // Filter out empty texts and get unique ones
+      const uniqueTexts = [...new Set(texts.filter((t) => t && t.trim()))];
+      
+      // Check which texts are already cached
+      const uncachedTexts: string[] = [];
+      const results: string[] = new Array(texts.length);
+
+      texts.forEach((text, index) => {
+        const cacheKey = text.trim();
+        if (this.cache[cacheKey]?.[targetLang]) {
+          results[index] = this.cache[cacheKey][targetLang];
+        } else if (text && text.trim()) {
+          if (!uncachedTexts.includes(text)) {
+            uncachedTexts.push(text);
+          }
+        } else {
+          results[index] = text;
+        }
+      });
+
+      // Translate uncached texts in one batch
+      if (uncachedTexts.length > 0) {
+        const response = await fetch(
+          `${TRANSLATE_API_URL}?key=${GOOGLE_TRANSLATE_API_KEY}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              q: uncachedTexts,
+              target: targetLang,
+              source: "en",
+              format: "text",
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const translations = data.data?.translations || [];
+
+          // Cache the translations
+          uncachedTexts.forEach((text, idx) => {
+            const translatedText = translations[idx]?.translatedText || text;
+            const cacheKey = text.trim();
+            if (!this.cache[cacheKey]) {
+              this.cache[cacheKey] = {};
+            }
+            this.cache[cacheKey][targetLang] = translatedText;
+          });
+
+          this.saveCache();
+        }
+      }
+
+      // Fill in the results
+      texts.forEach((text, index) => {
+        if (results[index] === undefined) {
+          const cacheKey = text.trim();
+          results[index] = this.cache[cacheKey]?.[targetLang] || text;
+        }
+      });
+
+      return results;
+    } catch (error) {
+      console.error("Batch translation error:", error);
+      return texts; // Fallback to original texts
+    }
+  }
+
+  private saveCache() {
+    if (typeof window !== "undefined") {
+      try {
+        // Limit cache size to prevent localStorage quota issues
+        const cacheEntries = Object.entries(this.cache);
+        if (cacheEntries.length > 1000) {
+          // Keep only the most recent 1000 entries
+          this.cache = Object.fromEntries(cacheEntries.slice(-1000));
+        }
+        localStorage.setItem(this.cacheKey, JSON.stringify(this.cache));
+      } catch (e) {
+        // If localStorage is full, clear old cache
+        try {
+          localStorage.removeItem("translation-cache"); // Remove old cache key
+          localStorage.setItem(this.cacheKey, JSON.stringify(this.cache));
+        } catch (e2) {
+          console.error("Failed to save translation cache:", e2);
+        }
+      }
+    }
+  }
+
+  clearCache() {
+    this.cache = {};
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(this.cacheKey);
+      localStorage.removeItem("translation-cache"); // Remove old cache key too
+    }
+  }
+
+  getCacheSize(): number {
+    return Object.keys(this.cache).length;
+  }
+}
+
+export const googleTranslate = new GoogleTranslateService();
+

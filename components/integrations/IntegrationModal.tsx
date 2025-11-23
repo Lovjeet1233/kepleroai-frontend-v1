@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Sparkles } from 'lucide-react';
-import { Tool, ToolProperty } from '@/services/integration.service';
+import { Tool, ToolProperty } from '@/services/tool.service';
 import { INTEGRATION_TEMPLATES, IntegrationTemplate } from '@/lib/integrationTemplates';
 
 interface IntegrationModalProps {

@@ -34,14 +34,23 @@ class ConversationService {
       const response = await apiClient.get('/conversations', {
         params: filters,
       });
+      
       // Backend returns paginatedResponse: { success: true, data: { items: [...], pagination: {...} } }
-      const items = response.data?.data?.items || response.data?.items || [];
+      // apiClient.get() returns the full response body
+      const items = response.data?.items || [];
       
       // Transform backend conversations to frontend format
       const conversations = items.map((conv: any) => {
-        const customerName = conv.customerId?.name || 'Unknown';
-        const avatar = conv.customerId?.avatar || this.generateAvatar(customerName);
-        const color = conv.customerId?.color || this.generateColor(customerName);
+        // Handle null customerId
+        const customer = conv.customerId || {};
+        
+        // Better fallback for name: use name, phone, email, or Unknown
+        const customerName = customer.name || 
+                            customer.phone || 
+                            customer.email || 
+                            'Unknown Customer';
+        const avatar = customer.avatar || this.generateAvatar(customerName);
+        const color = customer.color || this.generateColor(customerName);
         
         // Get last message text
         let lastMessageText = 'No messages yet';
@@ -57,8 +66,8 @@ class ConversationService {
           id: conv._id || conv.id,
           customer: {
             name: customerName,
-            email: conv.customerId?.email || '',
-            phone: conv.customerId?.phone || '',
+            email: customer.email || '',
+            phone: customer.phone || '',
             avatar,
             color,
           },
@@ -74,12 +83,18 @@ class ConversationService {
         };
       });
       
+      const pagination = response.data?.pagination || {};
+      
       return {
         conversations,
-        pagination: response.data?.data?.pagination || response.data?.pagination,
+        pagination,
       };
     } catch (error: any) {
-      console.error('Failed to fetch conversations:', error);
+      // Check if it's an auth error
+      if (error.status === 401) {
+        throw new Error('Please log in to view conversations');
+      }
+      
       throw new Error(error.message || 'Failed to fetch conversations');
     }
   }
@@ -123,7 +138,11 @@ class ConversationService {
       });
       
       // Transform backend conversation to frontend format
-      const customerName = conv.customerId?.name || 'Unknown';
+      // Better fallback for name: use name, phone, email, or Unknown
+      const customerName = conv.customerId?.name || 
+                          conv.customerId?.phone || 
+                          conv.customerId?.email || 
+                          'Unknown';
       const avatar = conv.customerId?.avatar || this.generateAvatar(customerName);
       const color = conv.customerId?.color || this.generateColor(customerName);
       

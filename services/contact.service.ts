@@ -173,9 +173,16 @@ class ContactService {
         ? `/contacts/lists/${listId}/import`
         : '/contacts/import';
 
+      console.log('[CSV Import] Uploading to:', endpoint);
+      console.log('[CSV Import] File:', file.name, file.size, 'bytes');
+      
       const response = await apiClient.uploadFile(endpoint, formData);
-      return response.data;
+      console.log('[CSV Import] Response:', response);
+      
+      // Handle both response formats: { data: { data: ... } } or { data: ... }
+      return response.data?.data || response.data || response;
     } catch (error: any) {
+      console.error('[CSV Import] Error:', error);
       throw new Error(error.message || 'Failed to import contacts');
     }
   }

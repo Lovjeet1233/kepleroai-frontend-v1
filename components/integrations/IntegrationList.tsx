@@ -1,6 +1,6 @@
 'use client';
 
-import { Tool } from '@/services/integration.service';
+import { Tool } from '@/services/tool.service';
 import { Edit2, Trash2, Mail, MessageSquare, Zap, Webhook, Database, Bell, Settings } from 'lucide-react';
 
 interface IntegrationListProps {

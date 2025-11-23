@@ -17,9 +17,11 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockUser } from "@/data/mockUser";
+import { useLanguage, languageNames, Language } from "@/contexts/LanguageContext";
 
 interface NavItem {
   icon: React.ElementType;
@@ -51,6 +53,8 @@ const bottomNavItems: NavItem[] = [
 export function Sidebar({ onCollapseChange }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
+  const { language, setLanguage } = useLanguage();
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
 
   useEffect(() => {
     if (onCollapseChange) {
@@ -147,6 +151,50 @@ export function Sidebar({ onCollapseChange }: SidebarProps) {
             </Link>
           );
         })}
+      </div>
+
+      {/* Language Switcher */}
+      <div className="border-t border-sidebar-border p-3 relative">
+        <button
+          onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+          className={cn(
+            "flex items-center h-10 w-full rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200",
+            isCollapsed ? "justify-center px-0" : "px-3 gap-3"
+          )}
+          title={isCollapsed ? languageNames[language] : undefined}
+        >
+          <Globe className="w-5 h-5 shrink-0" />
+          {!isCollapsed && (
+            <span className="text-sm font-medium truncate">{languageNames[language]}</span>
+          )}
+        </button>
+
+        {/* Language dropdown */}
+        {showLanguageMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setShowLanguageMenu(false)}
+            />
+            <div className="absolute bottom-full left-3 right-3 mb-2 z-50 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+              {(Object.keys(languageNames) as Language[]).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => {
+                    setLanguage(lang);
+                    setShowLanguageMenu(false);
+                  }}
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors",
+                    language === lang ? "bg-primary/10 text-primary font-medium" : "text-foreground"
+                  )}
+                >
+                  {languageNames[lang]}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Collapse/Expand button */}

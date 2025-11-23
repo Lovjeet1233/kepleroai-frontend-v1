@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, MessagesSquare, Users, UsersRound, BarChart3, Globe, Radio } from "lucide-react";
+import { MessageSquare, MessagesSquare, Users, UsersRound, BarChart3, Globe, Radio, Key, Plug, Share2, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
+  { href: "/settings/profile", label: "Profile & Subscription", icon: UserCircle },
   { href: "/settings/chatbot", label: "Chatbot", icon: MessageSquare },
   { href: "/settings/conversations", label: "Conversations", icon: MessagesSquare },
   { href: "/settings/contacts", label: "Contacts", icon: Users },
@@ -13,6 +14,9 @@ const menuItems = [
   { href: "/settings/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings/language-privacy", label: "Language & Privacy", icon: Globe },
   { href: "/settings/channels", label: "Channels", icon: Radio },
+  { href: "/settings/socials", label: "Socials", icon: Share2 },
+  { href: "/settings/api-keys", label: "API Keys", icon: Key },
+  { href: "/settings/integrations", label: "Integrations", icon: Plug },
 ];
 
 export function SettingsSidebar() {

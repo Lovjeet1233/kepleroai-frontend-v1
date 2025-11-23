@@ -23,8 +23,8 @@ export default function VoiceAgentPage() {
     <div className="flex h-full">
       <TrainingSidebar />
       <div className="flex-1 p-8 overflow-y-auto">
-        <h1 className="text-2xl font-bold text-white mb-2">Voice Agent Behavior</h1>
-        <p className="text-gray-400 mb-8">
+        <h1 className="text-2xl font-bold text-foreground mb-2">Voice Agent Behavior</h1>
+        <p className="text-muted-foreground mb-8">
           Configure how your AI voice agent responds to phone calls
         </p>
 

@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from 'react';
-import { Plus, Database, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Database, Upload, Loader2 } from 'lucide-react';
 import { useKnowledgeBase } from '@/contexts/KnowledgeBaseContext';
 import { CreateCollectionModal } from './CreateCollectionModal';
 import { IngestDataModal } from './IngestDataModal';
 
 export function KnowledgeBaseList() {
-  const { collections } = useKnowledgeBase();
+  const { collections, loadCollections } = useKnowledgeBase();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [selectedCollectionForIngest, setSelectedCollectionForIngest] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load collections on mount
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      await loadCollections();
+      setIsLoading(false);
+    };
+    load();
+  }, [loadCollections]);
 
   const handleIngestClick = (collectionName: string) => {
     setSelectedCollectionForIngest(collectionName);
@@ -37,7 +48,12 @@ export function KnowledgeBaseList() {
       </div>
 
       {/* Collections List */}
-      {collections.length === 0 ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <p className="text-sm text-muted-foreground">Loading knowledge bases...</p>
+        </div>
+      ) : collections.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-border rounded-xl">
           <Database className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">

@@ -1,10 +1,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // API URL Configuration
-// IMPORTANT: Make sure your .env.local file has NEXT_PUBLIC_API_URL=http://localhost:5001/api/v1
-const API_URL = typeof window !== 'undefined' && process.env.NODE_ENV === 'development'
-  ? 'http://localhost:5001/api/v1'  // Force localhost:5001 in development
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1');
+// IMPORTANT: Set NEXT_PUBLIC_API_URL in your .env.local file
+// Development: http://localhost:5001/api/v1
+// Production: https://your-backend.onrender.com/api/v1
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
 
 console.log('🔧 API Client initialized with URL:', API_URL);
 

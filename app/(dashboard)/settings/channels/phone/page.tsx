@@ -1,19 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Copy, Check } from "lucide-react";
+import { ArrowLeft, Copy, Check, ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePhoneSettings } from "@/hooks/usePhoneSettings";
 import { useAIBehavior } from "@/hooks/useAIBehavior";
-import { VOICE_OPTIONS } from "@/services/phoneSettings.service";
+import { VOICE_OPTIONS, phoneSettingsService } from "@/services/phoneSettings.service";
 import { toast } from "sonner";
+import { VoicePlayground } from "@/components/settings/VoicePlayground";
 
 export default function PhoneSettingsDetailPage() {
   const router = useRouter();
   const { settings, isLoading, updateSettings, isUpdating } = usePhoneSettings();
   const { aiBehavior, updateVoiceAgentHumanOperator } = useAIBehavior();
 
-  const [activeTab, setActiveTab] = useState<"settings" | "endOfCall">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "voice" | "endOfCall">("settings");
   const [copied, setCopied] = useState(false);
 
   // Form state
@@ -24,6 +25,22 @@ export default function PhoneSettingsDetailPage() {
   const [escalationRules, setEscalationRules] = useState<string[]>(
     aiBehavior?.voiceAgent?.humanOperator?.escalationRules || []
   );
+
+  // Setup methods state
+  const [showSetupMethods, setShowSetupMethods] = useState(false);
+  const [activeSetupMethod, setActiveSetupMethod] = useState<"full" | "livekit" | null>(null);
+  const [isSettingUp, setIsSettingUp] = useState(false);
+
+  // Full Setup (Method 1) form state
+  const [fullSetupLabel, setFullSetupLabel] = useState("");
+  const [fullSetupPhone, setFullSetupPhone] = useState("");
+  const [fullSetupTwilioSid, setFullSetupTwilioSid] = useState("");
+  const [fullSetupTwilioToken, setFullSetupTwilioToken] = useState("");
+
+  // LiveKit Trunk (Method 2) form state
+  const [livekitSetupLabel, setLivekitSetupLabel] = useState("");
+  const [livekitSetupPhone, setLivekitSetupPhone] = useState("");
+  const [livekitSetupSipAddress, setLivekitSetupSipAddress] = useState("");
 
   // Update form state when settings load
   useEffect(() => {
@@ -81,6 +98,94 @@ export default function PhoneSettingsDetailPage() {
     setEscalationRules(escalationRules.filter((_, i) => i !== index));
   };
 
+  // Full SIP Trunk Setup (Method 1)
+  const handleFullSetup = async () => {
+    if (!fullSetupLabel || !fullSetupPhone || !fullSetupTwilioSid || !fullSetupTwilioToken) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setIsSettingUp(true);
+    try {
+      const result = await phoneSettingsService.setupSipTrunk({
+        label: fullSetupLabel,
+        phone_number: fullSetupPhone,
+        twilio_sid: fullSetupTwilioSid,
+        twilio_auth_token: fullSetupTwilioToken,
+      });
+
+      // Auto-fill the form with returned values
+      setTwilioPhoneNumber(fullSetupPhone);
+      setLivekitSipTrunkId(result.livekit_trunk_id);
+
+      // Save settings automatically
+      await updateSettings({
+        selectedVoice,
+        twilioPhoneNumber: fullSetupPhone,
+        livekitSipTrunkId: result.livekit_trunk_id,
+        humanOperatorPhone,
+      });
+
+      toast.success("SIP Trunk setup completed successfully!");
+      setShowSetupMethods(false);
+      setActiveSetupMethod(null);
+      
+      // Clear form
+      setFullSetupLabel("");
+      setFullSetupPhone("");
+      setFullSetupTwilioSid("");
+      setFullSetupTwilioToken("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to setup SIP trunk");
+      console.error("Setup error:", error);
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
+  // LiveKit Trunk Setup (Method 2)
+  const handleLiveKitSetup = async () => {
+    if (!livekitSetupLabel || !livekitSetupPhone || !livekitSetupSipAddress) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setIsSettingUp(true);
+    try {
+      const result = await phoneSettingsService.createLiveKitTrunk({
+        label: livekitSetupLabel,
+        phone_number: livekitSetupPhone,
+        sip_address: livekitSetupSipAddress,
+      });
+
+      // Auto-fill the form with returned values
+      setTwilioPhoneNumber(result.phone_number);
+      setLivekitSipTrunkId(result.livekit_trunk_id);
+
+      // Save settings automatically
+      await updateSettings({
+        selectedVoice,
+        twilioPhoneNumber: result.phone_number,
+        livekitSipTrunkId: result.livekit_trunk_id,
+        humanOperatorPhone,
+      });
+
+      toast.success("LiveKit Trunk created successfully!");
+      setShowSetupMethods(false);
+      setActiveSetupMethod(null);
+      
+      // Clear form
+      setLivekitSetupLabel("");
+      setLivekitSetupPhone("");
+      setLivekitSetupSipAddress("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create LiveKit trunk");
+      console.error("Setup error:", error);
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-8">
@@ -135,7 +240,7 @@ export default function PhoneSettingsDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-secondary rounded-lg p-1 mb-6 max-w-md">
+      <div className="flex gap-1 bg-secondary rounded-lg p-1 mb-6 max-w-2xl">
         <button
           onClick={() => setActiveTab("settings")}
           className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
@@ -145,6 +250,16 @@ export default function PhoneSettingsDetailPage() {
           }`}
         >
           Settings
+        </button>
+        <button
+          onClick={() => setActiveTab("voice")}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
+            activeTab === "voice"
+              ? "bg-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Voice Playground
         </button>
         <button
           onClick={() => setActiveTab("endOfCall")}
@@ -160,7 +275,216 @@ export default function PhoneSettingsDetailPage() {
 
       {/* Settings Tab */}
       {activeTab === "settings" && (
-        <div className="bg-card border border-border rounded-xl p-6 max-w-2xl">
+        <div className="space-y-6 max-w-2xl">
+          {/* Auto Setup Methods Section */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <button
+              onClick={() => setShowSetupMethods(!showSetupMethods)}
+              className="w-full p-6 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-foreground">Quick Setup</h3>
+                  <p className="text-sm text-muted-foreground">Automatically configure your SIP trunk</p>
+                </div>
+              </div>
+              {showSetupMethods ? (
+                <ChevronUp className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              )}
+            </button>
+
+            {showSetupMethods && (
+              <div className="p-6 pt-0 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Method 1: Full Setup */}
+                  <div
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      activeSetupMethod === "full"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => setActiveSetupMethod(activeSetupMethod === "full" ? null : "full")}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-lg">🚀</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-foreground mb-1">Full Setup</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Complete setup from scratch with Twilio credentials
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Method 2: LiveKit Trunk Only */}
+                  <div
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      activeSetupMethod === "livekit"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => setActiveSetupMethod(activeSetupMethod === "livekit" ? null : "livekit")}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-lg">⚡</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-foreground mb-1">LiveKit Trunk</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Create LiveKit trunk from existing Twilio setup
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Full Setup Form */}
+                {activeSetupMethod === "full" && (
+                  <div className="mt-4 p-4 bg-secondary/50 rounded-lg space-y-4 border border-border">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Label <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={fullSetupLabel}
+                        onChange={(e) => setFullSetupLabel(e.target.value)}
+                        placeholder="e.g., My Voice Agent"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Phone Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={fullSetupPhone}
+                        onChange={(e) => setFullSetupPhone(e.target.value)}
+                        placeholder="+1234567890"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Twilio Account SID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={fullSetupTwilioSid}
+                        onChange={(e) => setFullSetupTwilioSid(e.target.value)}
+                        placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Twilio Auth Token <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={fullSetupTwilioToken}
+                        onChange={(e) => setFullSetupTwilioToken(e.target.value)}
+                        placeholder="••••••••••••••••••••••••••••••••"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                    <button
+                      onClick={handleFullSetup}
+                      disabled={isSettingUp || !fullSetupLabel || !fullSetupPhone || !fullSetupTwilioSid || !fullSetupTwilioToken}
+                      className="w-full h-10 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isSettingUp ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Setting up...
+                        </>
+                      ) : (
+                        "Setup SIP Trunk"
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* LiveKit Trunk Form */}
+                {activeSetupMethod === "livekit" && (
+                  <div className="mt-4 p-4 bg-secondary/50 rounded-lg space-y-4 border border-border">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Label <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={livekitSetupLabel}
+                        onChange={(e) => setLivekitSetupLabel(e.target.value)}
+                        placeholder="e.g., My Voice Agent"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Phone Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={livekitSetupPhone}
+                        onChange={(e) => setLivekitSetupPhone(e.target.value)}
+                        placeholder="+1234567890"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Twilio SIP Address <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={livekitSetupSipAddress}
+                        onChange={(e) => setLivekitSetupSipAddress(e.target.value)}
+                        placeholder="example.pstn.twilio.com"
+                        className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Your existing Twilio SIP trunk address
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleLiveKitSetup}
+                      disabled={isSettingUp || !livekitSetupLabel || !livekitSetupPhone || !livekitSetupSipAddress}
+                      className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isSettingUp ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create LiveKit Trunk"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Manual Configuration */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-foreground">Manual Configuration</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Or enter your settings manually if you prefer
+              </p>
+            </div>
+            
           <div className="space-y-6">
             {/* Voice Selection */}
             <div>
@@ -174,12 +498,12 @@ export default function PhoneSettingsDetailPage() {
               >
                 {VOICE_OPTIONS.map((voice) => (
                   <option key={voice.value} value={voice.value}>
-                    {voice.label}
+                    {voice.flag} {voice.label} ({voice.language} • {voice.gender})
                   </option>
                 ))}
               </select>
               <p className="text-xs text-muted-foreground mt-2">
-                Select the voice for your AI agent. You can preview voices in the AI Behavior section.
+                Select the voice for your AI agent. Go to the <button onClick={() => setActiveTab("voice")} className="text-primary hover:underline font-medium">Voice Playground</button> tab to preview all voices.
               </p>
             </div>
 
@@ -234,16 +558,38 @@ export default function PhoneSettingsDetailPage() {
               </p>
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end pt-4">
-              <button
-                onClick={handleSaveSettings}
-                disabled={isUpdating || !selectedVoice || !twilioPhoneNumber || !livekitSipTrunkId}
-                className="h-11 px-6 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUpdating ? "Saving..." : "Save Settings"}
-              </button>
+              {/* Save Button */}
+              <div className="flex justify-end pt-4">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={isUpdating || !selectedVoice || !twilioPhoneNumber || !livekitSipTrunkId}
+                  className="h-11 px-6 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpdating ? "Saving..." : "Save Settings"}
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Playground Tab */}
+      {activeTab === "voice" && (
+        <div className="bg-card border border-border rounded-xl p-6 max-w-4xl">
+          <VoicePlayground 
+            selectedVoice={selectedVoice}
+            onVoiceSelect={setSelectedVoice}
+          />
+          
+          {/* Save Button */}
+          <div className="flex justify-end pt-6 mt-6 border-t border-border">
+            <button
+              onClick={handleSaveSettings}
+              disabled={isUpdating || !selectedVoice}
+              className="h-11 px-6 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUpdating ? "Saving..." : "Save Voice Selection"}
+            </button>
           </div>
         </div>
       )}

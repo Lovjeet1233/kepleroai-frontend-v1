@@ -1,6 +1,7 @@
 import { Breadcrumb } from "./Breadcrumb";
 import { UserMenu } from "./UserMenu";
 import { ThemeToggle } from "./ThemeToggle";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface BreadcrumbItem {
   label: string;
@@ -24,6 +25,7 @@ export function Header({ title, breadcrumbs, actions }: HeaderProps) {
         <h1 className="text-2xl font-bold text-foreground">{title}</h1>
         <div className="flex items-center gap-4">
           {actions}
+          <LanguageSwitcher />
           <ThemeToggle />
           <UserMenu />
         </div>

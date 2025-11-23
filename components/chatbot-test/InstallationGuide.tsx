@@ -99,7 +99,7 @@ export function InstallationGuide() {
 
   return (
     <div className="w-1/2 bg-card p-8">
-      <h2 className="text-xl font-bold text-white mb-6">Installation</h2>
+      <h2 className="text-xl font-bold text-foreground mb-6">Installation</h2>
 
       {/* Tabs */}
       <div className="border-b border-border mb-6">
@@ -178,7 +178,7 @@ export function InstallationGuide() {
         <div className="border-t border-border pt-6">
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-between w-full text-white hover:text-indigo-400 transition-colors"
+            className="flex items-center justify-between w-full text-foreground hover:text-indigo-400 transition-colors"
           >
             <span className="text-sm font-medium">Advanced Attributes</span>
             {showAdvanced ? (
@@ -212,7 +212,7 @@ export function InstallationGuide() {
 
         {/* Share widget link */}
         <div className="border-t border-border pt-6">
-          <h3 className="text-sm font-medium text-white mb-3">
+          <h3 className="text-sm font-medium text-foreground mb-3">
             Share Widget Link
           </h3>
           <p className="text-xs text-muted-foreground mb-3">

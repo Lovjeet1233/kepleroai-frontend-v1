@@ -169,9 +169,17 @@ export function CSVImportModal({ isOpen, onClose, onImport, listName }: CSVImpor
             <p className="text-xs text-muted-foreground mb-2">
               Your CSV file should have headers in the first row. Common columns:
             </p>
-            <code className="text-xs text-secondary-foreground bg-black/50 px-2 py-1 rounded block">
-              name,email,phone,company,notes
+            <code className="text-xs text-secondary-foreground bg-black/50 px-2 py-1 rounded block mb-3">
+              name,email,phone,company,notes,tags
             </code>
+            <a
+              href="/contacts-template.csv"
+              download="contacts-template.csv"
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              Download Template CSV
+            </a>
           </div>
         </div>
 

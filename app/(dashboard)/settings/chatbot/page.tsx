@@ -1,18 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import { mockChatbotSettings } from "@/data/mockSettings";
 import { ToggleRow } from "@/components/settings/ToggleRow";
 import { ColorPicker } from "@/components/settings/ColorPicker";
+import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
+import { useKnowledgeBases } from "@/hooks/useKnowledgeBase";
+import { toast } from "sonner";
 
 export default function ChatbotSettingsPage() {
+  const { data: dbSettings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
+  const { data: knowledgeBases } = useKnowledgeBases();
   const [settings, setSettings] = useState(mockChatbotSettings);
   const [activeLanguage, setActiveLanguage] = useState("en");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = () => {
-    console.log("Saving settings:", settings);
-    // TODO: Implement save logic
+  // Load settings from database when available
+  useEffect(() => {
+    if (dbSettings) {
+      setSettings({
+        ...settings,
+        customization: {
+          ...settings.customization,
+          chatbotName: dbSettings.chatbotName || settings.customization.chatbotName,
+          widgetColor: dbSettings.primaryColor || settings.customization.widgetColor,
+          personality: settings.customization.personality,
+          character: settings.customization.character,
+        },
+      });
+      if (dbSettings.chatbotAvatar) {
+        setLogoUrl(dbSettings.chatbotAvatar);
+      }
+      if (dbSettings.defaultKnowledgeBaseId) {
+        setSelectedKnowledgeBaseId(dbSettings.defaultKnowledgeBaseId);
+      }
+    }
+  }, [dbSettings]);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      // Find selected knowledge base details
+      const selectedKB = knowledgeBases?.find((kb: any) => kb._id === selectedKnowledgeBaseId);
+      
+      // For now, save without logo upload (would need backend support for file upload)
+      await updateSettings.mutateAsync({
+        chatbotName: settings.customization.chatbotName,
+        primaryColor: settings.customization.widgetColor,
+        chatbotAvatar: logoUrl || undefined,
+        defaultKnowledgeBaseId: selectedKnowledgeBaseId || undefined,
+        defaultKnowledgeBaseName: selectedKB?.collectionName || undefined,
+      });
+      toast.success("Chatbot settings saved successfully!");
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    }
   };
 
   return (
@@ -81,9 +140,34 @@ export default function ChatbotSettingsPage() {
               <label className="block text-sm font-medium text-foreground mb-3">
                 Logo
               </label>
-              <button className="w-20 h-20 border-2 border-dashed border-border rounded-xl flex items-center justify-center hover:border-primary transition-colors">
-                <Upload className="w-6 h-6 text-muted-foreground" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-20 h-20 border-2 border-dashed border-border rounded-xl flex items-center justify-center hover:border-primary transition-colors overflow-hidden relative"
+              >
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Upload className="w-6 h-6 text-muted-foreground" />
+                )}
               </button>
+              {logoUrl && (
+                <button
+                  onClick={() => {
+                    setLogoUrl(null);
+                    setLogoFile(null);
+                  }}
+                  className="text-xs text-red-500 hover:text-red-400 mt-2"
+                >
+                  Remove logo
+                </button>
+              )}
             </div>
 
             {/* Chatbot name */}
@@ -164,6 +248,28 @@ export default function ChatbotSettingsPage() {
                 <option value="funny">Funny 🤣</option>
                 <option value="professional">Professional 💼</option>
               </select>
+            </div>
+
+            {/* Default Knowledge Base */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-3">
+                Default Knowledge Base
+              </label>
+              <select
+                value={selectedKnowledgeBaseId}
+                onChange={(e) => setSelectedKnowledgeBaseId(e.target.value)}
+                className="w-full h-11 bg-secondary border border-border rounded-lg px-4 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
+              >
+                <option value="">None (No RAG responses)</option>
+                {knowledgeBases?.map((kb: any) => (
+                  <option key={kb._id} value={kb._id}>
+                    {kb.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Select a knowledge base for AI auto-responses in conversations
+              </p>
             </div>
           </div>
         </div>
@@ -268,9 +374,10 @@ export default function ChatbotSettingsPage() {
         <div className="sticky bottom-0 pt-4 pb-2 bg-background">
           <button
             onClick={handleSave}
-            className="w-full h-12 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all"
+            disabled={updateSettings.isPending || isLoading}
+            className="w-full h-12 bg-primary text-foreground rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Changes
+            {updateSettings.isPending ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>

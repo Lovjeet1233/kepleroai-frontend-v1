@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, CreditCard, Download, Check } from "lucide-react";
 import { mockUser } from "@/data/mockUser";
 import { currentPlan, usageStats, invoices, paymentMethod } from "@/data/mockBilling";
+import { toast } from "sonner";
+import speakeasy from "speakeasy";
+import QRCode from "qrcode";
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"account" | "billing" | "security">("account");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [secret, setSecret] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: mockUser.name || "",
     email: mockUser.email,
@@ -16,6 +24,60 @@ export default function ProfilePage() {
     confirmPassword: "",
   });
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+
+  // Load avatar from localStorage on mount
+  useEffect(() => {
+    const savedAvatar = localStorage.getItem("userAvatar");
+    if (savedAvatar) {
+      setAvatarUrl(savedAvatar);
+    }
+  }, []);
+
+  // Generate 2FA QR code when enabled
+  useEffect(() => {
+    if (twoFactorEnabled && !qrCodeUrl) {
+      generateTwoFactorQR();
+    }
+  }, [twoFactorEnabled]);
+
+  const generateTwoFactorQR = async () => {
+    try {
+      const newSecret = speakeasy.generateSecret({
+        name: `KepleroAI (${formData.email})`,
+        issuer: "KepleroAI",
+      });
+      
+      setSecret(newSecret.base32);
+
+      const qrCode = await QRCode.toDataURL(newSecret.otpauth_url || "");
+      setQrCodeUrl(qrCode);
+    } catch (error) {
+      console.error("Failed to generate 2FA QR code:", error);
+      toast.error("Failed to generate 2FA QR code");
+    }
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setAvatarUrl(result);
+        // Save to localStorage
+        localStorage.setItem("userAvatar", result);
+        toast.success("Avatar uploaded successfully!");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: API call to save profile
+    toast.success("Profile updated successfully!");
+  };
 
   const tabs = [
     { id: "account", label: "Account" },
@@ -55,11 +117,32 @@ export default function ProfilePage() {
           <div className="bg-card border border-border rounded-xl p-8">
             {/* Avatar upload */}
             <div className="flex flex-col items-center mb-8">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
               <div className="relative group">
-                <div className="w-[120px] h-[120px] rounded-full bg-primary flex items-center justify-center text-foreground text-4xl font-bold">
-                  {mockUser.avatar}
-                </div>
-                <button className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarUrl ? (
+                  <div className="w-[120px] h-[120px] rounded-full overflow-hidden">
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-[120px] h-[120px] rounded-full bg-primary flex items-center justify-center text-foreground text-4xl font-bold">
+                    {mockUser.avatar}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
                   <Camera className="w-6 h-6 text-foreground" />
                 </button>
               </div>
@@ -69,7 +152,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Form */}
-            <form className="space-y-5">
+            <form onSubmit={handleSaveProfile} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Full Name
@@ -370,14 +453,30 @@ export default function ProfilePage() {
               {twoFactorEnabled && (
                 <div className="space-y-4 pt-4 border-t border-border">
                   <div className="flex flex-col items-center">
-                    <div className="w-48 h-48 bg-white rounded-lg p-4 mb-4">
-                      <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center text-xs text-muted-foreground">
-                        QR Code
+                    {qrCodeUrl ? (
+                      <div className="w-48 h-48 bg-white rounded-lg p-4 mb-4">
+                        <img
+                          src={qrCodeUrl}
+                          alt="2FA QR Code"
+                          className="w-full h-full"
+                        />
                       </div>
-                    </div>
+                    ) : (
+                      <div className="w-48 h-48 bg-white rounded-lg p-4 mb-4 flex items-center justify-center">
+                        <div className="text-sm text-muted-foreground">Generating QR Code...</div>
+                      </div>
+                    )}
                     <p className="text-sm text-muted-foreground text-center">
                       Scan this QR code with your authenticator app
                     </p>
+                    {secret && (
+                      <div className="mt-3">
+                        <p className="text-xs text-muted-foreground mb-1">Manual Entry Key:</p>
+                        <code className="text-xs bg-background border border-border px-2 py-1 rounded">
+                          {secret}
+                        </code>
+                      </div>
+                    )}
                   </div>
 
                   <div>

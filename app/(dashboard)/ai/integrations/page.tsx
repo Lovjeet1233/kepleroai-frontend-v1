@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { TrainingSidebar } from "@/components/training/TrainingSidebar";
 import { IntegrationModal } from "@/components/integrations/IntegrationModal";
 import { IntegrationList } from "@/components/integrations/IntegrationList";
-import { integrationService, Tool } from "@/services/integration.service";
+import { toolService, Tool } from "@/services/tool.service";
 import { Plus, RefreshCw } from "lucide-react";
 
 export default function IntegrationsPage() {
@@ -20,7 +20,7 @@ export default function IntegrationsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const tools = await integrationService.getAll();
+      const tools = await toolService.getAll();
       setIntegrations(tools);
     } catch (err: any) {
       console.error('Error fetching integrations:', err);
@@ -47,10 +47,10 @@ export default function IntegrationsPage() {
 
       if (editingTool) {
         // Update existing tool
-        await integrationService.update(editingTool.tool_id, data);
+        await toolService.update(editingTool.tool_id, data);
       } else {
         // Create new tool
-        await integrationService.register(data);
+        await toolService.register(data);
       }
 
       // Refresh the list
@@ -72,7 +72,7 @@ export default function IntegrationsPage() {
   const handleDelete = async (toolId: string) => {
     try {
       setError(null);
-      await integrationService.delete(toolId);
+      await toolService.delete(toolId);
       
       // Refresh the list
       await fetchIntegrations();

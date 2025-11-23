@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RotateCcw, Send, Minimize2, Database } from "lucide-react";
 import { mockChatbotSettings } from "@/data/mockSettings";
 import { pythonRagService } from "@/services/pythonRag.service";
 import { useKnowledgeBase } from "@/contexts/KnowledgeBaseContext";
+import { useSettings } from "@/hooks/useSettings";
 import { v4 as uuidv4 } from "uuid";
 
 interface ChatMessage {
@@ -16,8 +17,10 @@ interface ChatMessage {
 }
 
 export function WidgetSimulator() {
-  const { collections, selectedCollection, setSelectedCollection, chatAgentPrompt } = useKnowledgeBase();
+  const { collections, selectedCollection, setSelectedCollection, chatAgentPrompt, loadCollections } = useKnowledgeBase();
+  const { data: dbSettings } = useSettings();
   const [threadId] = useState(uuidv4());
+  const [userName, setUserName] = useState("Test User");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
@@ -29,6 +32,46 @@ export function WidgetSimulator() {
   const [input, setInput] = useState("");
   const [isReady] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  
+  // Get chatbot settings from database or fallback to mock
+  const chatbotName = dbSettings?.chatbotName || mockChatbotSettings.customization.chatbotName;
+  const chatbotAvatar = dbSettings?.chatbotAvatar || null;
+  const widgetColor = dbSettings?.primaryColor || mockChatbotSettings.customization.widgetColor;
+
+  // Load collections on mount
+  useEffect(() => {
+    loadCollections();
+  }, [loadCollections]);
+
+  // Save conversation to backend
+  const saveConversation = async (message: string, response: string) => {
+    try {
+      const payload = {
+        name: userName,
+        threadId: threadId,
+        collection: selectedCollection,
+        messages: [
+          { role: 'user', content: message, timestamp: new Date() },
+          { role: 'bot', content: response, timestamp: new Date() }
+        ]
+      };
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+      const res = await fetch(`${API_URL}/conversations/widget`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        console.log('✅ Conversation saved to database');
+      } else {
+        console.error('❌ Failed to save conversation:', await res.text());
+      }
+    } catch (error) {
+      console.error('❌ Error saving conversation:', error);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -67,6 +110,9 @@ export function WidgetSimulator() {
           retrieved_docs: response.retrieved_docs
         };
         setMessages((prev) => [...prev, botMessage]);
+
+        // Save conversation to database
+        await saveConversation(userQuery, response.answer);
       } else {
         // Fallback to simulated response if no collection selected
         setTimeout(() => {
@@ -119,6 +165,23 @@ export function WidgetSimulator() {
           </button>
         </div>
 
+        {/* User Name Input */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <label className="text-sm font-medium text-foreground mb-2 block">
+            Test User Name
+          </label>
+          <input
+            type="text"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            placeholder="Enter a test name..."
+            className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Conversations will be saved under this name
+          </p>
+        </div>
+
         {/* Collection Selector */}
         <div className="bg-card border border-border rounded-lg p-4">
           <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
@@ -167,16 +230,23 @@ export function WidgetSimulator() {
       <div className="max-w-[400px] mx-auto">
         <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[600px]">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border bg-primary">
+          <div 
+            className="flex items-center justify-between p-4 border-b border-border" 
+            style={{ backgroundColor: widgetColor }}
+          >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">
-                K
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                {chatbotAvatar ? (
+                  <img src={chatbotAvatar} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{chatbotName.charAt(0)}</span>
+                )}
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  {mockChatbotSettings.customization.chatbotName}
+                <h3 className="text-sm font-semibold text-white">
+                  {chatbotName}
                 </h3>
-                <p className="text-xs text-indigo-100">Online</p>
+                <p className="text-xs text-white/80">Online</p>
               </div>
             </div>
             <button className="text-white hover:bg-white/10 p-1 rounded transition-colors">
@@ -196,9 +266,10 @@ export function WidgetSimulator() {
                 <div
                   className={`max-w-[80%] px-4 py-2.5 rounded-2xl ${
                     message.sender === "user"
-                      ? "bg-primary text-white rounded-br-sm"
-                      : "bg-secondary text-white rounded-bl-sm"
+                      ? "text-white rounded-br-sm"
+                      : "bg-secondary text-foreground rounded-bl-sm"
                   }`}
+                  style={message.sender === "user" ? { backgroundColor: widgetColor } : {}}
                 >
                   <p className="text-sm">{message.content}</p>
                 </div>
@@ -215,12 +286,13 @@ export function WidgetSimulator() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Type your message..."
-                className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isSending}
-                className="w-10 h-10 bg-primary hover:brightness-110 text-white rounded-lg flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: widgetColor }}
+                className="w-10 h-10 hover:brightness-110 text-white rounded-lg flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSending ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

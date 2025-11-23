@@ -97,7 +97,7 @@ class SocketClient {
       return;
     }
 
-    this.socket.emit('join:conversation', conversationId);
+    this.socket.emit('join-conversation', conversationId);
     this.joinedRooms.add(conversationId);
     console.log(`📥 Joined conversation room: ${conversationId}`);
   }
@@ -108,18 +108,45 @@ class SocketClient {
   leaveConversation(conversationId: string): void {
     if (!this.socket?.connected) return;
 
-    this.socket.emit('leave:conversation', conversationId);
+    this.socket.emit('leave-conversation', conversationId);
     this.joinedRooms.delete(conversationId);
     console.log(`📤 Left conversation room: ${conversationId}`);
+  }
+
+  /**
+   * Join organization room to receive updates
+   */
+  joinOrganization(organizationId: string): void {
+    if (!this.socket?.connected) {
+      console.warn('Cannot join organization room: Socket not connected');
+      return;
+    }
+
+    this.socket.emit('join-organization', organizationId);
+    console.log(`📥 Joined organization room: ${organizationId}`);
   }
 
   // ============ Event Listeners ============
 
   /**
-   * Listen for new messages
+   * Listen for new messages (legacy)
    */
   onNewMessage(callback: (message: any) => void): void {
     this.socket?.on('message:new', callback);
+  }
+
+  /**
+   * Listen for message received (for WhatsApp/Social integrations)
+   */
+  onMessageReceived(callback: (data: any) => void): void {
+    this.socket?.on('message-received', callback);
+  }
+
+  /**
+   * Listen for new messages in organization
+   */
+  onNewMessageInOrg(callback: (data: any) => void): void {
+    this.socket?.on('new-message', callback);
   }
 
   /**

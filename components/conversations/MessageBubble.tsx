@@ -44,7 +44,7 @@ export function MessageBubble({
       <div className={cn("flex flex-col", isCustomer ? "items-start" : "items-end", "max-w-[70%]")}>
         <div
           className={cn(
-            "px-4 py-3 text-white text-sm",
+            "px-4 py-3 text-foreground text-sm",
             isCustomer
               ? "bg-secondary rounded-[12px_12px_12px_4px]"
               : "bg-primary rounded-[12px_12px_4px_12px]"
